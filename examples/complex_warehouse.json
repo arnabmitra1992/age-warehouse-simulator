@@ -1,0 +1,251 @@
+{
+  "warehouse": {
+    "name": "Complex Warehouse",
+    "width": 80.0,
+    "length": 120.0
+  },
+  "inbound_docks": [
+    {
+      "name": "IB1",
+      "position": {
+        "x": 0.0,
+        "y": 6.0
+      },
+      "count": 3
+    }
+  ],
+  "outbound_docks": [
+    {
+      "name": "OB1",
+      "position": {
+        "x": 80.0,
+        "y": 6.0
+      },
+      "count": 3
+    }
+  ],
+  "head_aisles": [
+    {
+      "name": "HA1",
+      "start": {
+        "x": 0.0,
+        "y": 6.0
+      },
+      "end": {
+        "x": 80.0,
+        "y": 6.0
+      },
+      "width": 5.0,
+      "connections": [
+        "SA1",
+        "SA2",
+        "SA3"
+      ]
+    },
+    {
+      "name": "HA2",
+      "start": {
+        "x": 0.0,
+        "y": 66.0
+      },
+      "end": {
+        "x": 80.0,
+        "y": 66.0
+      },
+      "width": 5.0,
+      "connections": [
+        "SA3",
+        "SA4",
+        "SA5",
+        "SA6"
+      ]
+    }
+  ],
+  "storage_aisles": [
+    {
+      "name": "SA1",
+      "start": {
+        "x": 15.0,
+        "y": 6.0
+      },
+      "end": {
+        "x": 15.0,
+        "y": 61.0
+      },
+      "width": 1.77,
+      "depth": 55.0,
+      "entry_type": "dead-end",
+      "storage_type": "rack",
+      "head_aisle": "HA1",
+      "racks": [
+        {
+          "side": "left",
+          "positions": 20,
+          "height": 8.5,
+          "levels": 5
+        },
+        {
+          "side": "right",
+          "positions": 20,
+          "height": 8.5,
+          "levels": 5
+        }
+      ]
+    },
+    {
+      "name": "SA2",
+      "start": {
+        "x": 35.0,
+        "y": 6.0
+      },
+      "end": {
+        "x": 35.0,
+        "y": 61.0
+      },
+      "width": 1.77,
+      "depth": 55.0,
+      "entry_type": "dead-end",
+      "storage_type": "rack",
+      "head_aisle": "HA1",
+      "racks": [
+        {
+          "side": "left",
+          "positions": 20,
+          "height": 8.5,
+          "levels": 5
+        },
+        {
+          "side": "right",
+          "positions": 20,
+          "height": 8.5,
+          "levels": 5
+        }
+      ]
+    },
+    {
+      "name": "SA3",
+      "start": {
+        "x": 55.0,
+        "y": 6.0
+      },
+      "end": {
+        "x": 55.0,
+        "y": 66.0
+      },
+      "width": 1.77,
+      "depth": 60.0,
+      "entry_type": "through",
+      "storage_type": "rack",
+      "head_aisle": "HA1",
+      "racks": [
+        {
+          "side": "left",
+          "positions": 22,
+          "height": 8.5,
+          "levels": 5
+        },
+        {
+          "side": "right",
+          "positions": 22,
+          "height": 8.5,
+          "levels": 5
+        }
+      ]
+    },
+    {
+      "name": "SA4",
+      "start": {
+        "x": 15.0,
+        "y": 66.0
+      },
+      "end": {
+        "x": 15.0,
+        "y": 116.0
+      },
+      "width": 2.84,
+      "depth": 50.0,
+      "entry_type": "dead-end",
+      "storage_type": "rack",
+      "head_aisle": "HA2",
+      "racks": [
+        {
+          "side": "left",
+          "positions": 18,
+          "height": 4.5,
+          "levels": 3
+        },
+        {
+          "side": "right",
+          "positions": 18,
+          "height": 4.5,
+          "levels": 3
+        }
+      ]
+    },
+    {
+      "name": "SA5",
+      "start": {
+        "x": 40.0,
+        "y": 66.0
+      },
+      "end": {
+        "x": 40.0,
+        "y": 106.0
+      },
+      "width": 3.5,
+      "depth": 40.0,
+      "entry_type": "dead-end",
+      "storage_type": "ground_storage",
+      "head_aisle": "HA2",
+      "racks": []
+    },
+    {
+      "name": "SA6",
+      "start": {
+        "x": 60.0,
+        "y": 66.0
+      },
+      "end": {
+        "x": 60.0,
+        "y": 96.0
+      },
+      "width": 5.0,
+      "depth": 30.0,
+      "entry_type": "dead-end",
+      "storage_type": "ground_stacking",
+      "head_aisle": "HA2",
+      "racks": []
+    }
+  ],
+  "ground_storage_zones": [
+    {
+      "name": "GS1",
+      "aisle": "SA5",
+      "position": {
+        "x": 40.0,
+        "y": 66.0
+      },
+      "width": 3.5,
+      "depth": 40.0,
+      "rows": 10,
+      "columns": 14
+    }
+  ],
+  "ground_stacking_zones": [
+    {
+      "name": "GST1",
+      "aisle": "SA6",
+      "position": {
+        "x": 60.0,
+        "y": 66.0
+      },
+      "width": 5.0,
+      "depth": 30.0,
+      "box_types": [
+        "1200x800",
+        "800x600"
+      ],
+      "max_stack_height": 2.5
+    }
+  ]
+}
