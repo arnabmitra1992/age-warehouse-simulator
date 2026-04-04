@@ -560,7 +560,7 @@ class TestSimulationEngine:
 
     def test_incompatible_agv_raises(self):
         """XNA_121 cannot do ground_stacking (not in its storage_types)."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="incompatible|storage|support"):
             self.engine.calculate_single_task_cycle(
                 "XNA_121", "ground_stacking", "SA4", lift_height=0.0
             )

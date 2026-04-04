@@ -171,16 +171,26 @@ class SimulationEngine:
         Warehouse layout dictionary (used to look up geometry).
     """
 
-    # Congestion penalty: extra wait time when an aisle is blocked (seconds)
-    CONGESTION_WAIT_S = 30.0
-
     def __init__(
         self,
         warehouse_graph: WarehouseGraph,
         layout: dict,
+        congestion_wait_s: float = TASK_PARAMETERS["pickup_time"],
     ) -> None:
+        """
+        Parameters
+        ----------
+        warehouse_graph : WarehouseGraph
+            The built warehouse graph.
+        layout : dict
+            Warehouse layout dictionary (used to look up geometry).
+        congestion_wait_s : float
+            Extra wait time (seconds) added when an aisle is already occupied by
+            another AGV.  Defaults to 30 s (equal to pickup_time).
+        """
         self.graph = warehouse_graph
         self.layout = layout
+        self.congestion_wait_s = congestion_wait_s
         self._aisle_map: Dict[str, dict] = {
             a["name"]: a for a in layout.get("storage_aisles", [])
         }
@@ -269,7 +279,9 @@ class SimulationEngine:
 
             # Check aisle congestion
             if aisle_busy_until[aisle_name] > start_t:
-                wait = aisle_busy_until[aisle_name] - start_t
+                # AGV must wait until the aisle is free, plus a minimum
+                # coordination buffer (self.congestion_wait_s).
+                wait = aisle_busy_until[aisle_name] - start_t + self.congestion_wait_s
                 start_t += wait
                 congestion_events += 1
 

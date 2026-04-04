@@ -18,6 +18,11 @@ Additional analysis:
 
 import math
 import logging
+
+# Weight applied to the utilization deviation penalty when scoring AGV types for
+# the recommendation algorithm.  Higher values favour AGVs whose utilization is
+# closer to the target over raw fleet size minimisation.
+_UTILIZATION_WEIGHT_FACTOR = 5
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -374,7 +379,7 @@ class FleetSizingCalculator:
         for agv_type, fleet in result.fleet_size_per_agv.items():
             util = result.utilization_per_agv.get(agv_type, 0)
             util_diff = abs(util - target)
-            score = fleet + util_diff * 5  # weight utilization closeness
+            score = fleet + util_diff * _UTILIZATION_WEIGHT_FACTOR
             scored.append((score, agv_type))
 
         scored.sort()

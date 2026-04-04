@@ -31,6 +31,11 @@ import networkx as nx
 
 from .agv_specs import AGV_SPECS, get_compatible_agvs_for_aisle
 
+# Maximum number of storage position nodes to create per aisle.
+# Capped for graph performance; the aisle depth is still used for physics
+# calculations independent of this limit.
+MAX_STORAGE_POSITIONS_PER_AISLE = 20
+
 logger = logging.getLogger(__name__)
 
 
@@ -273,7 +278,7 @@ class WarehouseGraph:
                 # Direction vector along aisle
                 dx = (ex - sx) / depth if depth > 0 else 0
                 dy = (ey - sy) / depth if depth > 0 else 1
-                for j in range(1, min(n_positions + 1, 21)):  # cap at 20 for performance
+                for j in range(1, min(n_positions + 1, MAX_STORAGE_POSITIONS_PER_AISLE + 1)):
                     pos_id = f"storage_pos_{name}_{j}"
                     px = sx + dx * step * j
                     py = sy + dy * step * j
