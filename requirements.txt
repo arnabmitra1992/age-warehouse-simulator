@@ -1,6 +1,9 @@
-networkx
-matplotlib
-numpy
-pandas
-scipy
-# Add any additional packages required for the AGV warehouse simulator here
+networkx>=3.0
+matplotlib>=3.6
+numpy>=1.23
+pandas>=1.5
+scipy>=1.9
+# PDF report generation (bundled with matplotlib)
+# Ollama client uses only stdlib urllib – no extra package required
+# Optional: install requests for improved HTTP handling
+requests>=2.28
