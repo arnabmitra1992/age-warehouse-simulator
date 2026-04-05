@@ -142,10 +142,13 @@ class WarehouseVisualizer:
 
         components = {}
         for r in result.aisle_results:
-            comps = r.details.get("components", {})
-            for key, val in comps.items():
-                if isinstance(val, (int, float)) and key.endswith("_s"):
-                    components.setdefault(key, []).append(float(val))
+            try:
+                comps = r.details.get("components", {}) if isinstance(r.details, dict) else {}
+                for key, val in comps.items():
+                    if isinstance(val, (int, float)) and key.endswith("_s"):
+                        components.setdefault(key, []).append(float(val))
+            except (AttributeError, TypeError):
+                continue
 
         if not components:
             plt.close(fig)
