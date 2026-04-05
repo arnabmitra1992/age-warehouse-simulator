@@ -1,0 +1,63 @@
+{
+  "_comment": "Large warehouse scenario – 3000 pallets/day, extended layout",
+  "AGV_Specifications": {
+    "XQE_122": {
+      "forward_speed_ms": 1.0,
+      "reverse_speed_ms": 0.3,
+      "lift_speed_ms": 0.2,
+      "max_lift_height_mm": 4500,
+      "pickup_time_s": 30,
+      "dropoff_time_s": 30
+    },
+    "XPL_201": {
+      "forward_speed_ms": 1.5,
+      "reverse_speed_ms": 0.5,
+      "pickup_time_s": 30,
+      "dropoff_time_s": 30
+    },
+    "Turn_90_degrees_s": 10
+  },
+
+  "Warehouse_Layout": {
+    "Distances_mm": {
+      "Rest_to_Inbound": 8000,
+      "Rest_to_Head_Aisle": 5000,
+      "Head_Aisle_to_Handover": 15000,
+      "Head_Aisle_to_Rack_Aisle": 10000,
+      "Rack_Aisle_Length": 40000,
+      "Head_Aisle_to_Stacking": 18000,
+      "Inbound_Depth_mm": 2000
+    }
+  },
+
+  "Rack_Configuration": {
+    "Rack_Length_mm": 40000,
+    "Pallet_Width_mm": 800,
+    "Shelf_Height_Spacing_mm": 1300,
+    "Position_Spacing_mm": 950
+  },
+
+  "Ground_Stacking_Configuration": {
+    "Box_Dimensions": {
+      "Length_mm": 1200,
+      "Width_mm": 800,
+      "Height_mm": 1000
+    },
+    "Storage_Area_Dimensions": {
+      "Length_mm": 30000,
+      "Width_mm": 20000
+    },
+    "Fork_Entry_Side": "Length",
+    "Clearance_mm": 200
+  },
+
+  "Throughput_Configuration": {
+    "Total_Daily_Pallets": 3000,
+    "Operating_Hours": 20,
+    "XPL_201_Percentage": 30,
+    "XQE_Rack_Percentage": 50,
+    "XQE_Stacking_Percentage": 20,
+    "Utilization_Target": 0.85,
+    "Buffer_Capacity_Pallets": 100
+  }
+}
