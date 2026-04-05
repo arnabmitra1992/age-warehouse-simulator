@@ -26,7 +26,12 @@ _UTILIZATION_WEIGHT_FACTOR = 5
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from .agv_specs import AGV_SPECS, TASK_PARAMETERS, get_compatible_agv_types
+from .agv_specs import (
+    AGV_SPECS,
+    TASK_PARAMETERS,
+    NARROW_AISLE_THRESHOLD_M,
+    get_compatible_agv_types,
+)
 from .graph_generator import WarehouseGraph
 from .physics import AGVPhysics, TaskCycleResult
 from .simulation_engine import SimulationEngine, SimulationResult
@@ -167,22 +172,31 @@ class FleetSizingCalculator:
     def analyse_aisles(self) -> List[AisleAnalysis]:
         """
         Analyse each storage aisle: compatible AGV types and cycle times.
+
+        XNA models are only included for aisles narrower than
+        NARROW_AISLE_THRESHOLD_M (2.5 m).  Standard aisles use XQE / XPL only.
         """
         analyses = []
-        inbound_dock = self._engine._inbound_dock_id
-        outbound_dock = self._engine._outbound_dock_id
 
         for aisle in self.layout.get("storage_aisles", []):
             name = aisle["name"]
             storage_type = aisle.get("storage_type", "rack")
             width = aisle.get("width", 2.84)
             depth = aisle.get("depth", 20.0)
+            is_narrow = width < NARROW_AISLE_THRESHOLD_M
 
-            compatible = [
-                agv_type
-                for agv_type, spec in AGV_SPECS.items()
-                if storage_type in spec["storage_types"] and width >= spec["aisle_width"]
-            ]
+            compatible = []
+            for agv_type, spec in AGV_SPECS.items():
+                if storage_type not in spec["storage_types"]:
+                    continue
+                if width < spec["aisle_width"]:
+                    continue
+                is_xna = agv_type.startswith("XNA")
+                if is_xna and not is_narrow:
+                    continue
+                if not is_xna and is_narrow:
+                    continue
+                compatible.append(agv_type)
 
             analysis = AisleAnalysis(
                 aisle_name=name,

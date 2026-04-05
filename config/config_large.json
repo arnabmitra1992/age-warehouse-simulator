@@ -1,0 +1,55 @@
+{
+  "warehouse": {
+    "name": "Large Warehouse",
+    "length_mm": 60000,
+    "width_mm": 40000,
+    "head_aisle_width_mm": 4000
+  },
+  "docks": {
+    "inbound":  {"x_mm": 0,     "y_mm": 20000},
+    "outbound": {"x_mm": 60000, "y_mm": 20000}
+  },
+  "rest_area":    {"x_mm": 30000, "y_mm": 0},
+  "handover_zone":{"x_mm": 30000, "y_mm": 40000},
+  "storage_aisles": [
+    {
+      "name": "Rack Aisle 1",
+      "type": "rack",
+      "width_mm": 2840,
+      "length_mm": 30000,
+      "entry_x_mm": 5000,
+      "entry_y_mm": 10000,
+      "rack_length_mm": 20000,
+      "shelf_heights": [1.3, 2.6, 3.9, 4.5]
+    },
+    {
+      "name": "Rack Aisle 2",
+      "type": "rack",
+      "width_mm": 2840,
+      "length_mm": 30000,
+      "entry_x_mm": 15000,
+      "entry_y_mm": 10000,
+      "rack_length_mm": 20000,
+      "shelf_heights": [1.3, 2.6, 3.9, 4.5]
+    },
+    {
+      "name": "Ground Stacking Area",
+      "type": "ground_stacking",
+      "width_mm": 10000,
+      "length_mm": 20000,
+      "entry_x_mm": 35000,
+      "entry_y_mm": 10000,
+      "box_length_mm": 1200,
+      "box_width_mm": 800,
+      "box_height_mm": 1000
+    }
+  ],
+  "throughput": {
+    "daily_pallets": 1000,
+    "operating_hours": 16,
+    "xpl_percentage": 30,
+    "xqe_rack_percentage": 50,
+    "xqe_stacking_percentage": 20,
+    "utilization_target": 0.75
+  }
+}
