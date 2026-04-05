@@ -1,0 +1,92 @@
+{
+  "warehouse": {
+    "name": "Medium Warehouse (Case Study 2)",
+    "description": "Mid-size distribution center with mixed storage types. Typical for a regional logistics operation.",
+    "width": 60.0,
+    "length": 80.0
+  },
+  "inbound_docks": [
+    {
+      "name": "Inbound Dock",
+      "position": {"x": 0.0, "y": 6.0},
+      "count": 2
+    }
+  ],
+  "outbound_docks": [
+    {
+      "name": "Outbound Dock",
+      "position": {"x": 60.0, "y": 6.0},
+      "count": 2
+    }
+  ],
+  "head_aisles": [
+    {
+      "name": "HA1",
+      "start": {"x": 0.0, "y": 6.0},
+      "end": {"x": 60.0, "y": 6.0},
+      "width": 4.5,
+      "connections": ["Rack Aisle 1 (High-Rise)", "Rack Aisle 2 (Standard)", "Ground Stacking Area"]
+    }
+  ],
+  "storage_aisles": [
+    {
+      "name": "Rack Aisle 1 (High-Rise)",
+      "start": {"x": 10.0, "y": 6.0},
+      "end": {"x": 10.0, "y": 56.0},
+      "width": 2.84,
+      "depth": 50.0,
+      "entry_type": "dead-end",
+      "storage_type": "rack",
+      "head_aisle": "HA1",
+      "racks": [
+        {"side": "left",  "positions": 15, "height": 4.5, "levels": 4},
+        {"side": "right", "positions": 15, "height": 4.5, "levels": 4}
+      ]
+    },
+    {
+      "name": "Rack Aisle 2 (Standard)",
+      "start": {"x": 28.0, "y": 6.0},
+      "end": {"x": 28.0, "y": 56.0},
+      "width": 2.84,
+      "depth": 50.0,
+      "entry_type": "dead-end",
+      "storage_type": "rack",
+      "head_aisle": "HA1",
+      "racks": [
+        {"side": "left",  "positions": 15, "height": 2.5, "levels": 2},
+        {"side": "right", "positions": 15, "height": 2.5, "levels": 2}
+      ]
+    },
+    {
+      "name": "Ground Stacking Area",
+      "start": {"x": 48.0, "y": 6.0},
+      "end": {"x": 48.0, "y": 31.0},
+      "width": 5.0,
+      "depth": 25.0,
+      "entry_type": "dead-end",
+      "storage_type": "ground_stacking",
+      "head_aisle": "HA1",
+      "racks": []
+    }
+  ],
+  "ground_storage_zones": [],
+  "ground_stacking_zones": [
+    {
+      "name": "GST1",
+      "aisle": "Ground Stacking Area",
+      "position": {"x": 48.0, "y": 6.0},
+      "width": 5.0,
+      "depth": 25.0,
+      "box_types": ["1200x800", "800x600"],
+      "max_stack_height": 2.0
+    }
+  ],
+  "_meta": {
+    "scenario": "Regional distribution center",
+    "daily_pallets": 1000,
+    "operating_hours": 16,
+    "suggested_throughput_per_hour": 60,
+    "utilization_target": 0.75,
+    "notes": "Demonstrates multi-aisle coordination and mixed AGV types. Run with: python main.py simulate --layout config/case_study_medium.json --throughput 60 --output output/case_study_2"
+  }
+}
