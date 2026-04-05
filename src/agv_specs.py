@@ -1,18 +1,70 @@
 """
-AGV Specifications Module
-==========================
-Hardcoded specifications for EP Equipment AGV models used in warehouse operations.
-
-Key physics note:
-  - Fork is BACKWARD-FACING on all models.
-  - When the fork is engaged (loaded travel), the AGV moves in REVERSE.
-  - Empty travel uses FORWARD speed (faster).
-  - Loaded travel uses REVERSE speed (slower).
+AGV Specifications for XQE_122, XPL_201, and XNA vehicles.
 """
-
+from dataclasses import dataclass, field
 from typing import Optional, List
 
 
+@dataclass
+class XQE122Specs:
+    """XQE_122 Racking Robot specifications."""
+    forward_speed_ms: float = 1.0       # m/s
+    reverse_speed_ms: float = 0.3       # m/s
+    lift_speed_ms: float = 0.2          # m/s
+    max_lift_height_mm: float = 4500    # mm
+    pickup_time_s: float = 30           # seconds
+    dropoff_time_s: float = 30          # seconds
+    fork_type: str = "backward"         # reverse entry
+    name: str = "XQE_122"
+
+    @property
+    def max_lift_height_m(self) -> float:
+        return self.max_lift_height_mm / 1000.0
+
+
+@dataclass
+class XPL201Specs:
+    """XPL_201 Handover Robot specifications."""
+    forward_speed_ms: float = 1.5       # m/s
+    reverse_speed_ms: float = 0.5       # m/s
+    pickup_time_s: float = 30           # seconds
+    dropoff_time_s: float = 30          # seconds
+    name: str = "XPL_201"
+
+
+@dataclass
+class XNASpecs:
+    """XNA Narrow-Aisle Robot specifications (XNA_121, XNA_151)."""
+    forward_speed_ms: float = 1.0       # m/s
+    reverse_speed_ms: float = 1.0       # m/s (same both directions)
+    lift_speed_ms: float = 0.2          # m/s
+    max_lift_height_mm: float = 8500    # mm (XNA_121 = 8.5m, XNA_151 = 13m)
+    pickup_time_s: float = 30           # seconds
+    dropoff_time_s: float = 30          # seconds
+    min_aisle_width_mm: float = 1717    # mm (1.717m minimum)
+    max_aisle_width_mm: float = 2500    # mm (2.5m maximum)
+    fork_type: str = "backward"         # reverse entry
+    name: str = "XNA"
+
+    @property
+    def max_lift_height_m(self) -> float:
+        return self.max_lift_height_mm / 1000.0
+
+
+@dataclass
+class TurnSpecs:
+    """Shared turn operation specifications."""
+    turn_90_degrees_s: float = 10       # seconds per 90° turn
+
+
+# Default instances
+DEFAULT_XQE122 = XQE122Specs()
+DEFAULT_XPL201 = XPL201Specs()
+DEFAULT_XNA = XNASpecs()
+DEFAULT_TURNS = TurnSpecs()
+
+
+# AGV_SPECS dictionary for compatibility with fleet sizing logic
 AGV_SPECS: dict = {
     "XQE_122": {
         "name": "XQE_122",
@@ -30,7 +82,7 @@ AGV_SPECS: dict = {
     "XPL_201": {
         "name": "XPL_201",
         "forward_speed": 1.5,       # m/s - empty travel
-        "reverse_speed": 0.3,       # m/s - loaded travel (fork engaged)
+        "reverse_speed": 0.5,       # m/s - loaded travel (fork engaged)
         "lifting_speed": None,      # Not applicable – only 20 cm lift
         "capacity": 2000,           # kg
         "aisle_width": 2.6,         # m
@@ -75,6 +127,42 @@ TASK_PARAMETERS: dict = {
     "dock_positioning_time": 10,    # seconds – reversing into dock position
     "target_utilization": 0.80,     # 80% – target AGV utilization for fleet sizing
 }
+
+
+def xqe122_from_dict(d: dict) -> XQE122Specs:
+    """Create XQE122Specs from a configuration dictionary."""
+    return XQE122Specs(
+        forward_speed_ms=d.get("forward_speed_ms", 1.0),
+        reverse_speed_ms=d.get("reverse_speed_ms", 0.3),
+        lift_speed_ms=d.get("lift_speed_ms", 0.2),
+        max_lift_height_mm=d.get("max_lift_height_mm", 4500),
+        pickup_time_s=d.get("pickup_time_s", 30),
+        dropoff_time_s=d.get("dropoff_time_s", 30),
+    )
+
+
+def xpl201_from_dict(d: dict) -> XPL201Specs:
+    """Create XPL201Specs from a configuration dictionary."""
+    return XPL201Specs(
+        forward_speed_ms=d.get("forward_speed_ms", 1.5),
+        reverse_speed_ms=d.get("reverse_speed_ms", 0.5),
+        pickup_time_s=d.get("pickup_time_s", 30),
+        dropoff_time_s=d.get("dropoff_time_s", 30),
+    )
+
+
+def xna_from_dict(d: dict) -> XNASpecs:
+    """Create XNASpecs from a configuration dictionary."""
+    return XNASpecs(
+        forward_speed_ms=d.get("forward_speed_ms", 1.0),
+        reverse_speed_ms=d.get("reverse_speed_ms", 1.0),
+        lift_speed_ms=d.get("lift_speed_ms", 0.2),
+        max_lift_height_mm=d.get("max_lift_height_mm", 8500),
+        min_aisle_width_mm=d.get("min_aisle_width_mm", 1717),
+        max_aisle_width_mm=d.get("max_aisle_width_mm", 2500),
+        pickup_time_s=d.get("pickup_time_s", 30),
+        dropoff_time_s=d.get("dropoff_time_s", 30),
+    )
 
 
 def get_agv_spec(agv_type: str) -> dict:

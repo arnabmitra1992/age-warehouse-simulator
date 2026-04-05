@@ -2,18 +2,24 @@
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
 .pytest_cache/
 *.egg-info/
 dist/
 build/
+.eggs/
+*.egg
 
-# Virtual environments
-.venv/
+# Environment
+.env
+.venv
 venv/
 env/
 
 # Output artifacts
 output/
+*.csv
+*.json.bak
 *.pdf
 *.log
 
