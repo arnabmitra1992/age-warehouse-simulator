@@ -1,0 +1,78 @@
+{
+  "warehouse": {
+    "name": "Small Warehouse (Case Study 1)",
+    "description": "Small facility with a single rack aisle and ground stacking. Suitable for startup or small e-commerce operation.",
+    "width": 20.0,
+    "length": 30.0
+  },
+  "inbound_docks": [
+    {
+      "name": "Inbound Dock",
+      "position": {"x": 0.0, "y": 4.0},
+      "count": 1
+    }
+  ],
+  "outbound_docks": [
+    {
+      "name": "Outbound Dock",
+      "position": {"x": 20.0, "y": 4.0},
+      "count": 1
+    }
+  ],
+  "head_aisles": [
+    {
+      "name": "HA1",
+      "start": {"x": 0.0, "y": 4.0},
+      "end": {"x": 20.0, "y": 4.0},
+      "width": 4.0,
+      "connections": ["SA1", "SA2"]
+    }
+  ],
+  "storage_aisles": [
+    {
+      "name": "Rack Aisle 1",
+      "start": {"x": 5.0, "y": 4.0},
+      "end": {"x": 5.0, "y": 24.0},
+      "width": 2.84,
+      "depth": 20.0,
+      "entry_type": "dead-end",
+      "storage_type": "rack",
+      "head_aisle": "HA1",
+      "racks": [
+        {"side": "left",  "positions": 8, "height": 4.5, "levels": 4},
+        {"side": "right", "positions": 8, "height": 4.5, "levels": 4}
+      ]
+    },
+    {
+      "name": "Ground Stacking Area",
+      "start": {"x": 14.0, "y": 4.0},
+      "end": {"x": 14.0, "y": 19.0},
+      "width": 5.0,
+      "depth": 15.0,
+      "entry_type": "dead-end",
+      "storage_type": "ground_stacking",
+      "head_aisle": "HA1",
+      "racks": []
+    }
+  ],
+  "ground_storage_zones": [],
+  "ground_stacking_zones": [
+    {
+      "name": "GST1",
+      "aisle": "Ground Stacking Area",
+      "position": {"x": 14.0, "y": 4.0},
+      "width": 5.0,
+      "depth": 15.0,
+      "box_types": ["1200x800", "800x600"],
+      "max_stack_height": 2.0
+    }
+  ],
+  "_meta": {
+    "scenario": "Small operation – startup / small e-commerce",
+    "daily_pallets": 500,
+    "operating_hours": 8,
+    "suggested_throughput_per_hour": 30,
+    "utilization_target": 0.80,
+    "notes": "Ideal for understanding basic fleet sizing with limited complexity. Run with: python main.py simulate --layout config/case_study_small.json --throughput 30 --output output/case_study_1"
+  }
+}
