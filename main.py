@@ -51,6 +51,7 @@ from src.physics import AGVPhysics
 from src.simulation_engine import SimulationEngine
 from src.fleet_sizing import FleetSizingCalculator
 from src.visualization import WarehouseVisualizer
+from src.simulator import WarehouseSimulator, is_mm_config
 
 
 # ---------------------------------------------------------------------------
@@ -269,12 +270,42 @@ def cmd_parse(args) -> None:
         sys.exit(1)
 
 
+def cmd_run(args) -> None:
+    """Run mm-based warehouse simulation from a JSON config file."""
+    config_path = getattr(args, "config", None)
+    if not config_path:
+        print("  Please specify a config file path")
+        sys.exit(1)
+    if not os.path.exists(config_path):
+        print(f"  Config file not found: {config_path}")
+        sys.exit(1)
+    sim = WarehouseSimulator.from_file(config_path)
+    throughput = getattr(args, "throughput", None)
+    utilization = getattr(args, "utilization", None)
+    sim.run(
+        throughput_per_hour=float(throughput) if throughput is not None else None,
+        utilization_target=float(utilization) if utilization is not None else None,
+        verbose=True,
+    )
+
+
 def cmd_simulate(args) -> None:
     """Run fleet sizing simulation on a layout file."""
     layout_path = getattr(args, "layout", None)
     if not layout_path:
         print("  Please specify --layout <path>")
         sys.exit(1)
+    # Auto-detect mm-based config and use the new pipeline if appropriate
+    with open(layout_path) as f:
+        data = json.load(f)
+    if is_mm_config(data):
+        sim = WarehouseSimulator.from_dict(data)
+        throughput = getattr(args, "throughput", None)
+        sim.run(
+            throughput_per_hour=float(throughput) if throughput is not None else None,
+            verbose=True,
+        )
+        return
     layout = _load_layout(layout_path)
     agv_type = getattr(args, "agv", "ALL") or "ALL"
     throughput = getattr(args, "throughput", 30) or 30
@@ -404,6 +435,12 @@ Examples:
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
+    # -- run --
+    p_run = subparsers.add_parser("run", help="Run mm-based warehouse simulation from JSON config")
+    p_run.add_argument("config", help="Path to mm-based warehouse config JSON")
+    p_run.add_argument("--throughput", type=float, help="Override target pallets/hour")
+    p_run.add_argument("--utilization", type=float, help="Override utilization target (0-1)")
+
     # -- demo --
     p_demo = subparsers.add_parser("demo", help="Run with a built-in example warehouse")
     p_demo.add_argument("--example", choices=["simple", "medium", "complex"],
@@ -453,6 +490,8 @@ def main() -> None:
 
     if args.command is None or args.command == "interactive":
         cmd_interactive(args)
+    elif args.command == "run":
+        cmd_run(args)
     elif args.command == "demo":
         cmd_demo(args)
     elif args.command == "parse":

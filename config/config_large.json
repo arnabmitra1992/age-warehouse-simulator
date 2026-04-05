@@ -1,0 +1,59 @@
+{
+  "name": "Large Warehouse",
+  "width_mm": 100000,
+  "length_mm": 120000,
+  "head_aisle_width_mm": 5000,
+  "inbound_docks": 6,
+  "outbound_docks": 6,
+  "aisles": [
+    {
+      "name": "SA1",
+      "type": "rack",
+      "width_mm": 2840,
+      "depth_mm": 40000,
+      "num_positions": 80,
+      "shelf_heights_mm": [0, 1200, 2400, 3600]
+    },
+    {
+      "name": "SA2",
+      "type": "rack",
+      "width_mm": 2840,
+      "depth_mm": 40000,
+      "num_positions": 80,
+      "shelf_heights_mm": [0, 1200, 2400, 3600]
+    },
+    {
+      "name": "SA3",
+      "type": "rack",
+      "width_mm": 2840,
+      "depth_mm": 40000,
+      "num_positions": 80,
+      "shelf_heights_mm": [0, 1200, 2400, 3600]
+    },
+    {
+      "name": "SA4",
+      "type": "ground_stacking",
+      "width_mm": 3500,
+      "depth_mm": 40000,
+      "stacking_levels": 4
+    },
+    {
+      "name": "SA5",
+      "type": "ground_stacking",
+      "width_mm": 3500,
+      "depth_mm": 40000,
+      "stacking_levels": 4
+    },
+    {
+      "name": "SA6",
+      "type": "handover",
+      "width_mm": 3000,
+      "depth_mm": 20000
+    }
+  ],
+  "throughput": {
+    "pallets_per_day": 3000,
+    "operating_hours": 16
+  },
+  "utilization_target": 0.80
+}
