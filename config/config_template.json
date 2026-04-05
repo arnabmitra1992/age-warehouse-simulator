@@ -1,0 +1,36 @@
+{
+  "name": "My Warehouse",
+  "width_mm": 40000,
+  "length_mm": 60000,
+  "head_aisle_width_mm": 4000,
+  "inbound_docks": 2,
+  "outbound_docks": 2,
+  "aisles": [
+    {
+      "name": "SA1",
+      "type": "rack",
+      "width_mm": 2840,
+      "depth_mm": 20000,
+      "num_positions": 40,
+      "shelf_heights_mm": [0, 1200, 2400, 3600]
+    },
+    {
+      "name": "SA2",
+      "type": "ground_stacking",
+      "width_mm": 3000,
+      "depth_mm": 20000,
+      "stacking_levels": 3
+    },
+    {
+      "name": "SA3",
+      "type": "handover",
+      "width_mm": 2840,
+      "depth_mm": 15000
+    }
+  ],
+  "throughput": {
+    "pallets_per_day": 500,
+    "operating_hours": 16
+  },
+  "utilization_target": 0.80
+}

@@ -12,6 +12,8 @@ Key physics note:
 
 from typing import Optional, List
 
+XNA_MAX_AISLE_WIDTH = 2.5   # XNA models ONLY for aisles narrower than 2.5 m
+NARROW_AISLE_THRESHOLD_M = XNA_MAX_AISLE_WIDTH  # alias used by other modules
 
 AGV_SPECS: dict = {
     "XQE_122": {
@@ -130,6 +132,9 @@ def get_compatible_agvs_for_aisle(
         if storage_type not in spec["storage_types"]:
             continue
         if aisle_width < spec["aisle_width"]:
+            continue
+        # XNA models are ONLY for narrow aisles (< 2.5 m)
+        if name in ("XNA_121", "XNA_151") and aisle_width >= XNA_MAX_AISLE_WIDTH:
             continue
         if required_lift_height is not None:
             if spec["max_lift_height"] < required_lift_height:
