@@ -196,7 +196,7 @@ class WarehouseVisualizer:
             mpatches.Patch(color=COLORS["edge_forward"], label="Forward Travel"),
             mpatches.Patch(color=COLORS["edge_reverse"], label="Reverse Travel (Fork)"),
         ]
-        ax.legend(handles=legend_handles, loc="best", fancybox=True, framealpha=0.9)
+        ax.legend(handles=legend_handles, loc="upper right", fancybox=True, framealpha=0.9)
 
         ax.set_title(title, fontweight="bold", pad=12)
         ax.set_xlabel("X position (m)")
