@@ -441,10 +441,76 @@ Examples:
     p_sim.add_argument("--output", default="output",
                        help="Output directory")
 
+    # -- run (PR-2 pipeline: mm-based JSON config, separate inbound/outbound) --
+    p_run = subparsers.add_parser(
+        "run",
+        help="Run fleet sizing with separate inbound/outbound throughput (mm-based JSON config)",
+    )
+    p_run.add_argument("--config", required=True,
+                       help="Path to warehouse config JSON (mm-based distances)")
+    p_run.add_argument("--inbound-throughput", dest="inbound_throughput",
+                       type=int, default=None,
+                       help="Inbound daily tasks (overrides config value)")
+    p_run.add_argument("--outbound-throughput", dest="outbound_throughput",
+                       type=int, default=None,
+                       help="Outbound daily tasks (overrides config value)")
+    p_run.add_argument("--inbound-hours", dest="inbound_hours",
+                       type=float, default=None,
+                       help="Inbound operating hours per day (overrides config)")
+    p_run.add_argument("--outbound-hours", dest="outbound_hours",
+                       type=float, default=None,
+                       help="Outbound operating hours per day (overrides config)")
+    p_run.add_argument("--inbound-util", dest="inbound_util",
+                       type=float, default=None,
+                       help="Inbound utilization target 0–1 (overrides config)")
+    p_run.add_argument("--outbound-util", dest="outbound_util",
+                       type=float, default=None,
+                       help="Outbound utilization target 0–1 (overrides config)")
+    p_run.add_argument("--output", default="output",
+                       help="Output directory for charts and JSON report (default: output/)")
+    p_run.add_argument("--no-vis", action="store_true",
+                       help="Skip visualization (analytical report only)")
+
     # -- interactive --
     subparsers.add_parser("interactive", help="Full interactive menu session")
 
     return parser
+
+
+def cmd_run(args) -> None:
+    """Run the PR-2 pipeline (mm-based JSON config, separate inbound/outbound throughput)."""
+    from src.simulator import WarehouseSimulator
+
+    config_path = getattr(args, "config", None)
+    if not config_path:
+        print("  Please specify --config <path>")
+        import sys as _sys
+        _sys.exit(1)
+
+    print(f"\n  ╔══════════════════════════════════════════════════════════╗")
+    print(f"  ║   WAREHOUSE AGV FLEET SIZING SIMULATOR – RUN MODE       ║")
+    print(f"  ╚══════════════════════════════════════════════════════════╝\n")
+
+    sim = WarehouseSimulator(config_path=config_path)
+    sim.print_capacity_summary()
+
+    report = sim.run(
+        inbound_tasks=getattr(args, "inbound_throughput", None),
+        outbound_tasks=getattr(args, "outbound_throughput", None),
+        inbound_hours=getattr(args, "inbound_hours", None),
+        outbound_hours=getattr(args, "outbound_hours", None),
+        inbound_utilization=getattr(args, "inbound_util", None),
+        outbound_utilization=getattr(args, "outbound_util", None),
+    )
+    report.print_report()
+
+    output_dir = getattr(args, "output", "output")
+    json_path = sim.save_report(report, output_dir=output_dir)
+    print(f"  JSON report saved → {json_path}")
+
+    if not getattr(args, "no_vis", False):
+        sim.visualize(report, output_dir=output_dir)
+        print(f"  Charts saved → {output_dir}/")
 
 
 def main() -> None:
@@ -459,6 +525,8 @@ def main() -> None:
         cmd_parse(args)
     elif args.command == "simulate":
         cmd_simulate(args)
+    elif args.command == "run":
+        cmd_run(args)
     else:
         parser.print_help()
 
