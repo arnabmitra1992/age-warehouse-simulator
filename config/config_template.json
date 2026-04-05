@@ -1,0 +1,59 @@
+{
+  "_comment": "Warehouse AGV Simulator – Configuration Template. All distances in millimetres (mm).",
+  "warehouse": {
+    "name": "Template Warehouse",
+    "width_mm": 40000,
+    "length_mm": 50000
+  },
+  "inbound": {
+    "position": "west",
+    "distance_to_handover_mm": 10000,
+    "distance_to_rack_handover_mm": 10000,
+    "distance_to_stacking_handover_mm": 15000
+  },
+  "outbound": {
+    "position": "east",
+    "rack_handover_to_outbound_mm": 10000,
+    "stacking_handover_to_outbound_mm": 15000,
+    "distance_from_handover_mm": 10000
+  },
+  "distances": {
+    "handover_to_rack_mm": 5000,
+    "handover_to_stacking_mm": 8000
+  },
+  "rack_storage": {
+    "aisle_width_mm": 2840,
+    "aisle_depth_mm": 20000,
+    "pallet_spacing_mm": 950,
+    "shelves": [
+      {"height_mm": 300, "description": "Ground level"},
+      {"height_mm": 1500, "description": "Level 2"},
+      {"height_mm": 3000, "description": "Level 3"},
+      {"height_mm": 4500, "description": "Level 4 (max XQE)"}
+    ]
+  },
+  "ground_stacking": {
+    "rows": 5,
+    "cols": 4,
+    "levels": 3,
+    "level_height_mm": 1200,
+    "area_length_mm": 10000,
+    "area_width_mm": 8000
+  },
+  "workflow": {
+    "rack_fraction": 0.6,
+    "stacking_fraction": 0.4
+  },
+  "throughput": {
+    "inbound": {
+      "daily_tasks": 100,
+      "operating_hours": 8.0,
+      "utilization": 0.75
+    },
+    "outbound": {
+      "daily_tasks": 100,
+      "operating_hours": 8.0,
+      "utilization": 0.75
+    }
+  }
+}

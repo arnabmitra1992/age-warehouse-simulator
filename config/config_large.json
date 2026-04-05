@@ -1,0 +1,59 @@
+{
+  "_comment": "Large case study: 100×120m warehouse, ~3000 pallets/day. All distances ≥ 50m → full handover.",
+  "warehouse": {
+    "name": "Large Warehouse (100×120m)",
+    "width_mm": 100000,
+    "length_mm": 120000
+  },
+  "inbound": {
+    "position": "west",
+    "distance_to_handover_mm": 60000,
+    "distance_to_rack_handover_mm": 60000,
+    "distance_to_stacking_handover_mm": 65000
+  },
+  "outbound": {
+    "position": "east",
+    "rack_handover_to_outbound_mm": 70000,
+    "stacking_handover_to_outbound_mm": 75000,
+    "distance_from_handover_mm": 70000
+  },
+  "distances": {
+    "handover_to_rack_mm": 15000,
+    "handover_to_stacking_mm": 18000
+  },
+  "rack_storage": {
+    "aisle_width_mm": 2840,
+    "aisle_depth_mm": 50000,
+    "pallet_spacing_mm": 950,
+    "shelves": [
+      {"height_mm": 300, "description": "Ground level"},
+      {"height_mm": 1500, "description": "Level 2"},
+      {"height_mm": 3000, "description": "Level 3"},
+      {"height_mm": 4500, "description": "Level 4 (max XQE)"}
+    ]
+  },
+  "ground_stacking": {
+    "rows": 10,
+    "cols": 8,
+    "levels": 4,
+    "level_height_mm": 1200,
+    "area_length_mm": 25000,
+    "area_width_mm": 20000
+  },
+  "workflow": {
+    "rack_fraction": 0.6,
+    "stacking_fraction": 0.4
+  },
+  "throughput": {
+    "inbound": {
+      "daily_tasks": 1800,
+      "operating_hours": 10.0,
+      "utilization": 0.80
+    },
+    "outbound": {
+      "daily_tasks": 1200,
+      "operating_hours": 10.0,
+      "utilization": 0.80
+    }
+  }
+}
