@@ -26,7 +26,7 @@ _UTILIZATION_WEIGHT_FACTOR = 5
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from .agv_specs import AGV_SPECS, TASK_PARAMETERS, get_compatible_agv_types
+from .agv_specs import AGV_SPECS, TASK_PARAMETERS, XNA_MAX_AISLE_WIDTH, get_compatible_agv_types
 from .graph_generator import WarehouseGraph
 from .physics import AGVPhysics, TaskCycleResult
 from .simulation_engine import SimulationEngine, SimulationResult
@@ -181,7 +181,9 @@ class FleetSizingCalculator:
             compatible = [
                 agv_type
                 for agv_type, spec in AGV_SPECS.items()
-                if storage_type in spec["storage_types"] and width >= spec["aisle_width"]
+                if storage_type in spec["storage_types"]
+                and width >= spec["aisle_width"]
+                and not (agv_type.startswith("XNA") and width >= XNA_MAX_AISLE_WIDTH)
             ]
 
             analysis = AisleAnalysis(
