@@ -7,7 +7,7 @@ Pallets are stacked in levels, with 200 mm clearance between levels.
 Level-based lifting:
   Level 0: 0 mm (floor)
   Level 1: 1200 + 200 = 1400 mm (pallet height + clearance)
-  Level 2: 2800 + 200 = 3000 mm (2 pallet heights + clearance... etc)
+  Level 2: 2 * 1200 + 200 = 2600 mm (2 pallet heights + clearance)
   NOTE: typical pallet height = 1200 mm
 
 Grid positioning: 200 mm clearance between adjacent stacks.
