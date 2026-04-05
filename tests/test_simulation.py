@@ -130,10 +130,12 @@ class TestAGVSpecs:
         assert "XQE_122" not in compatible  # aisle too narrow
 
     def test_get_compatible_agvs_for_aisle_wide_rack(self):
-        # 2.84m wide aisle, rack, 4.5m height
+        # 2.84m wide aisle (>= 2.5m), rack, 4.5m height
+        # XNA models must NOT appear for standard-width aisles
         compatible = get_compatible_agvs_for_aisle(2.84, "rack", required_lift_height=4.5)
         assert "XQE_122" in compatible
-        assert "XNA_121" in compatible
+        assert "XNA_121" not in compatible   # XNA only for < 2.5m aisles
+        assert "XNA_151" not in compatible   # XNA only for < 2.5m aisles
         # XPL_201 can't do rack
         assert "XPL_201" not in compatible
 
@@ -476,25 +478,26 @@ class TestFleetSizing:
     def test_aisle_compatibility_sa1(self):
         analyses = self.calc.analyse_aisles()
         sa1 = next(a for a in analyses if a.aisle_name == "SA1")
-        # SA1 is 2.84m rack aisle – XQE, XNA_121, XNA_151 should be compatible
+        # SA1 is 2.84m rack aisle (>= 2.5m) – XQE should be compatible;
+        # XNA models must NOT appear (they are reserved for narrow aisles < 2.5m)
         assert "XQE_122" in sa1.compatible_agvs
-        assert "XNA_121" in sa1.compatible_agvs
-        assert "XNA_151" in sa1.compatible_agvs
+        assert "XNA_121" not in sa1.compatible_agvs
+        assert "XNA_151" not in sa1.compatible_agvs
         # XPL is ground only
         assert "XPL_201" not in sa1.compatible_agvs
 
     def test_fleet_size_formula(self):
         """Fleet size = ceil(tph / (tph_per_agv * utilization))."""
         analyses = self.calc.analyse_aisles()
-        # Get XNA_121 cycle time
-        xna_analysis = [a for a in analyses if "XNA_121" in a.cycle_times]
-        assert xna_analysis
-        avg_ct = sum(a.cycle_times["XNA_121"] for a in xna_analysis) / len(xna_analysis)
+        # Use XQE_122 which is compatible with the 2.84m rack aisles in MEDIUM layout
+        xqe_analysis = [a for a in analyses if "XQE_122" in a.cycle_times]
+        assert xqe_analysis
+        avg_ct = sum(a.cycle_times["XQE_122"] for a in xqe_analysis) / len(xqe_analysis)
         tph_per_agv = 3600.0 / avg_ct
         expected_fleet = math.ceil(30.0 / (tph_per_agv * 0.80))
 
-        result = self.calc.calculate_fleet_size(tasks_per_hour=30.0, agv_type="XNA_121")
-        assert result.fleet_size_per_agv["XNA_121"] == expected_fleet
+        result = self.calc.calculate_fleet_size(tasks_per_hour=30.0, agv_type="XQE_122")
+        assert result.fleet_size_per_agv["XQE_122"] == expected_fleet
 
     def test_fleet_size_scales_with_throughput(self):
         """More throughput → more AGVs needed."""
@@ -516,7 +519,8 @@ class TestFleetSizing:
 
     def test_throughput_sensitivity(self):
         tph_range = [10.0, 20.0, 30.0, 40.0, 50.0]
-        data = self.calc.throughput_sensitivity("XNA_121", tph_range)
+        # Use XQE_122 which is compatible with the standard-width aisles in MEDIUM layout
+        data = self.calc.throughput_sensitivity("XQE_122", tph_range)
         assert len(data) == len(tph_range)
         # Fleet sizes should be non-decreasing
         fleet_sizes = [d[1] for d in data]
@@ -542,7 +546,11 @@ class TestSimulationEngine:
         self.engine = SimulationEngine(self.wg, MEDIUM_WAREHOUSE_JSON)
 
     def test_single_task_rack_xna(self):
-        result = self.engine.calculate_single_task_cycle(
+        # The COMPLEX warehouse has narrow (1.77m) aisles where XNA is appropriate.
+        wg_complex = WarehouseGraph()
+        wg_complex.build_from_layout(COMPLEX_WAREHOUSE_JSON)
+        engine_complex = SimulationEngine(wg_complex, COMPLEX_WAREHOUSE_JSON)
+        result = engine_complex.calculate_single_task_cycle(
             "XNA_121", "rack", "SA1", lift_height=2.25
         )
         assert result.total_cycle_time > 0

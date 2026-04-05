@@ -269,23 +269,85 @@ def cmd_parse(args) -> None:
         sys.exit(1)
 
 
+def _is_new_config_format(layout: dict) -> bool:
+    """
+    Detect whether a layout dict uses the new mm-unit PR-2 config format
+    (has length_mm / width_mm under 'warehouse') vs the old metres format.
+    """
+    wh = layout.get("warehouse", {})
+    return "length_mm" in wh or "width_mm" in wh
+
+
+def cmd_run(args) -> None:
+    """Run the PR-2 simulation pipeline on a new-format JSON config."""
+    from src.simulator import Simulator
+
+    config_path = getattr(args, "config", None)
+    if not config_path:
+        print("  Please specify --config <path>")
+        sys.exit(1)
+
+    throughput = getattr(args, "throughput", None)
+    if throughput is not None:
+        throughput = float(throughput)
+
+    sim = Simulator(config_path)
+    report = sim.run(tasks_per_hour=throughput)
+    sim.print_report(report)
+
+    # Export JSON results
+    output_dir = getattr(args, "output", "output")
+    os.makedirs(output_dir, exist_ok=True)
+    json_path = os.path.join(output_dir, "fleet_sizing_results.json")
+    with open(json_path, "w") as fh:
+        json.dump(report.to_dict(), fh, indent=2)
+    print(f"  JSON results saved → {json_path}\n")
+
+
 def cmd_simulate(args) -> None:
-    """Run fleet sizing simulation on a layout file."""
+    """Run fleet sizing simulation on a layout file (auto-detects format)."""
     layout_path = getattr(args, "layout", None)
     if not layout_path:
         print("  Please specify --layout <path>")
         sys.exit(1)
-    layout = _load_layout(layout_path)
-    agv_type = getattr(args, "agv", "ALL") or "ALL"
-    throughput = getattr(args, "throughput", 30) or 30
-    run_sim = not getattr(args, "no_sim", False)
-    _run_sizing(
-        layout=layout,
-        agv_type=agv_type,
-        throughput=float(throughput),
-        run_simulation=run_sim,
-        output_dir=getattr(args, "output", "output"),
-    )
+
+    # Peek at the file to decide which pipeline to use
+    try:
+        with open(layout_path, "r") as fh:
+            peek = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"  Cannot read layout file: {exc}")
+        sys.exit(1)
+
+    if _is_new_config_format(peek):
+        # Route to the PR-2 pipeline
+        from src.simulator import Simulator
+        throughput = getattr(args, "throughput", None)
+        throughput = float(throughput) if throughput else None
+        sim = Simulator(layout_path)
+        report = sim.run(tasks_per_hour=throughput)
+        sim.print_report(report)
+
+        output_dir = getattr(args, "output", "output")
+        os.makedirs(output_dir, exist_ok=True)
+        json_path = os.path.join(output_dir, "fleet_sizing_results.json")
+        with open(json_path, "w") as fh:
+            json.dump(report.to_dict(), fh, indent=2)
+        print(f"  JSON results saved → {json_path}\n")
+    else:
+        # Legacy pipeline (old metres-based format)
+        layout = _load_layout(layout_path)
+        agv_type = getattr(args, "agv", "ALL") or "ALL"
+        throughput = getattr(args, "throughput", 30) or 30
+        run_sim = not getattr(args, "no_sim", False)
+        _run_sizing(
+            layout=layout,
+            agv_type=agv_type,
+            throughput=float(throughput),
+            run_simulation=run_sim,
+            output_dir=getattr(args, "output", "output"),
+        )
+
 
 
 def cmd_interactive(args) -> None:
@@ -404,6 +466,15 @@ Examples:
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
+    # -- run (PR-2 pipeline) --
+    p_run = subparsers.add_parser("run", help="Run PR-2 workflow simulation on a new-format config")
+    p_run.add_argument("--config", required=True,
+                       help="Path to new-format warehouse config JSON (mm units)")
+    p_run.add_argument("--throughput", type=float,
+                       help="Override target tasks per hour (default: from config)")
+    p_run.add_argument("--output", default="output",
+                       help="Output directory for results (default: output/)")
+
     # -- demo --
     p_demo = subparsers.add_parser("demo", help="Run with a built-in example warehouse")
     p_demo.add_argument("--example", choices=["simple", "medium", "complex"],
@@ -453,6 +524,8 @@ def main() -> None:
 
     if args.command is None or args.command == "interactive":
         cmd_interactive(args)
+    elif args.command == "run":
+        cmd_run(args)
     elif args.command == "demo":
         cmd_demo(args)
     elif args.command == "parse":

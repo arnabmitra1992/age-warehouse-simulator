@@ -108,6 +108,10 @@ def validate_lift_height(agv_type: str, required_height: float) -> bool:
     return spec["max_lift_height"] >= required_height
 
 
+# Aisle width threshold below which narrow-aisle (XNA) models are used exclusively.
+NARROW_AISLE_THRESHOLD_M: float = 2.5
+
+
 def get_compatible_agvs_for_aisle(
     aisle_width: float,
     storage_type: str,
@@ -115,6 +119,10 @@ def get_compatible_agvs_for_aisle(
 ) -> List[str]:
     """
     Return sorted list of AGV types compatible with an aisle's constraints.
+
+    XNA models (XNA_121, XNA_151) are ONLY recommended for narrow aisles
+    where aisle_width < 2.5 m.  Standard aisles (>= 2.5 m) use XQE_122
+    and XPL_201 only.
 
     Parameters
     ----------
@@ -125,6 +133,7 @@ def get_compatible_agvs_for_aisle(
     required_lift_height : float, optional
         Required lift height in metres (for rack storage).
     """
+    is_narrow = aisle_width < NARROW_AISLE_THRESHOLD_M
     compatible = []
     for name, spec in AGV_SPECS.items():
         if storage_type not in spec["storage_types"]:
@@ -134,6 +143,13 @@ def get_compatible_agvs_for_aisle(
         if required_lift_height is not None:
             if spec["max_lift_height"] < required_lift_height:
                 continue
+        # XNA models are only appropriate for narrow aisles (< 2.5 m).
+        is_xna = name.startswith("XNA")
+        if is_xna and not is_narrow:
+            continue
+        # Standard AGVs (XQE, XPL) are not recommended for narrow aisles.
+        if not is_xna and is_narrow:
+            continue
         compatible.append(name)
     return compatible
 
