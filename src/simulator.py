@@ -269,26 +269,35 @@ class WarehouseSimulator:
             for _ in range(inbound_this_hour):
                 fifo_model.inbound_put()
             
-            # OUTBOUND: Try to retrieve oldest (which are in back rows 9-10, blocked by front)
+            # OUTBOUND: Retrieve from BACK ROWS (9-10) where old pallets are, even if blocked
             for _ in range(outbound_this_hour):
-                oldest = fifo_model.oldest_accessible_slot()
-                if oldest:
-                    # Count blocking pallets (newer ones in front of same column/level)
-                    blockers = fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
+                # Find oldest pallet in back rows (9-10) - where we pre-filled old pallets
+                oldest_in_back = None
+                for row in [10, 9]:  # Back rows first
+                    for col in range(1, fifo_model.num_columns + 1):
+                        for level in range(1, fifo_model.num_levels + 1):
+                            slot = fifo_model._slots[(row, col, level)]
+                            if slot.is_occupied:
+                                if oldest_in_back is None or slot.fill_order < oldest_in_back.fill_order:
+                                    oldest_in_back = slot
+                
+                if oldest_in_back:
+                    # Count blocking pallets in front of this back-row pallet
+                    blockers = fifo_model.blocking_pallets(oldest_in_back.row, oldest_in_back.col, oldest_in_back.level)
                     
                     # DEBUG: Print blocking info
-                    if hour == 8 and _ == 0:  # Print first retrieval of hour 8
-                        print(f"  DEBUG Hour {hour}: Oldest at Row {oldest.row}, Col {oldest.col}, Level {oldest.level} | "
-                              f"Fill_order {oldest.fill_order} | Blockers: {len(blockers)}")
+                    if hour == 8 and _ == 0:
+                        print(f"  DEBUG Hour {hour}: Oldest_in_back at Row {oldest_in_back.row}, Col {oldest_in_back.col}, Level {oldest_in_back.level} | "
+                              f"Fill_order {oldest_in_back.fill_order} | Blockers: {len(blockers)}")
                     
                     total_shuffles += len(blockers)
                     day_shuffles[day] += len(blockers)
                     
-                    # Shuffle them out of the way
+                    # Shuffle blockers out of the way
                     for blocker in blockers:
                         fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
                     
-                    # Now retrieve the oldest
+                    # Now retrieve the back-row pallet
                     fifo_model.outbound_get()
                     total_retrievals += 1
                     day_retrievals[day] += 1
