@@ -169,7 +169,7 @@ class WarehouseSimulator:
             self.config.get("Traffic_Control", {})
         )
     
-    def _simulate_dynamic_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
+        def _simulate_dynamic_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
         """
         Simulate dynamic inbound/outbound with variable ratios throughout the day.
         Returns average shuffles per outbound retrieval.
@@ -178,6 +178,9 @@ class WarehouseSimulator:
         - Hours 1-3: 70% inbound, 30% outbound (morning receiving)
         - Hours 4-7: 50% inbound, 50% outbound (balanced mid-day)
         - Hours 8-10: 30% inbound, 70% outbound (afternoon shipping)
+        
+        KEY: Process OUTBOUND FIRST each hour, then INBOUND
+        This ensures old pallets (front rows) are retrieved before new ones are added (back rows)
         """
         inbound_per_hour = int(self.throughput.effective_inbound_pallets / operating_hours)
         outbound_per_hour = int(self.throughput.effective_outbound_pallets / operating_hours)
@@ -189,22 +192,18 @@ class WarehouseSimulator:
             # Variable inbound/outbound ratio based on time of day
             if hour <= 3:
                 # Morning: Heavy inbound
-                inbound_this_hour = int(inbound_per_hour * 1.4)  # 70% extra
-                outbound_this_hour = int(outbound_per_hour * 0.6)  # 30% reduced
+                inbound_this_hour = int(inbound_per_hour * 1.4)  # 70% extra (50)
+                outbound_this_hour = int(outbound_per_hour * 0.6)  # 30% reduced (21)
             elif hour <= 7:
                 # Mid-day: Balanced
-                inbound_this_hour = inbound_per_hour
-                outbound_this_hour = outbound_per_hour
+                inbound_this_hour = inbound_per_hour  # 36
+                outbound_this_hour = outbound_per_hour  # 36
             else:
                 # Afternoon: Heavy outbound
-                inbound_this_hour = int(inbound_per_hour * 0.6)  # 30% reduced
-                outbound_this_hour = int(outbound_per_hour * 1.4)  # 70% extra
+                inbound_this_hour = int(inbound_per_hour * 0.6)  # 30% reduced (21)
+                outbound_this_hour = int(outbound_per_hour * 1.4)  # 70% extra (50)
             
-            # INBOUND: Add pallets to storage (back-to-front)
-            for _ in range(inbound_this_hour):
-                fifo_model.inbound_put()
-            
-            # OUTBOUND: Retrieve pallets and count actual shuffles
+            # OUTBOUND FIRST: Retrieve pallets and count actual shuffles
             for _ in range(outbound_this_hour):
                 oldest = fifo_model.oldest_accessible_slot()
                 if oldest:
@@ -219,6 +218,10 @@ class WarehouseSimulator:
                     # Now retrieve the oldest pallet
                     fifo_model.outbound_get()
                     total_retrievals += 1
+            
+            # INBOUND SECOND: Add pallets to storage (fill front-to-back)
+            for _ in range(inbound_this_hour):
+                fifo_model.inbound_put()
         
         return total_shuffles / max(1, total_retrievals)
 
