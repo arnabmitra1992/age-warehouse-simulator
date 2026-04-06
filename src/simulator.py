@@ -169,16 +169,16 @@ class WarehouseSimulator:
             self.config.get("Traffic_Control", {})
         )
     
-        def _simulate_dynamic_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
+    def _simulate_dynamic_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
         """
         Simulate dynamic inbound/outbound with variable ratios throughout the day.
         Returns average shuffles per outbound retrieval.
-        
+            
         Simulates:
         - Hours 1-3: 70% inbound, 30% outbound (morning receiving)
         - Hours 4-7: 50% inbound, 50% outbound (balanced mid-day)
         - Hours 8-10: 30% inbound, 70% outbound (afternoon shipping)
-        
+            
         KEY: Process OUTBOUND FIRST each hour, then INBOUND
         This ensures old pallets (front rows) are retrieved before new ones are added (back rows)
         """
@@ -223,7 +223,7 @@ class WarehouseSimulator:
             for _ in range(inbound_this_hour):
                 fifo_model.inbound_put()
         
-        return total_shuffles / max(1, total_retrievals)
+    return total_shuffles / max(1, total_retrievals)
 
     def run(self, traffic_control_enabled: bool = False) -> SimulationResults:
         """Execute the full simulation and return results.
