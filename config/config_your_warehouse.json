@@ -30,10 +30,10 @@
   },
 
   "Rack_Configuration": {
-    "Rack_Length_mm": 0,
-    "Pallet_Width_mm": 0,
-    "Shelf_Height_Spacing_mm": 0,
-    "Position_Spacing_mm": 0
+    "Rack_Length_mm": 20000,
+    "Pallet_Width_mm": 800,
+    "Shelf_Height_Spacing_mm": 1300,
+    "Position_Spacing_mm": 950
   },
 
   "Ground_Stacking_Configuration": {
