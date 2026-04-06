@@ -325,7 +325,13 @@ class WarehouseSimulator:
                                         break
                                 if moved:
                                     break
-            
+                    avg_shuffles = total_shuffles / max(1, total_retrievals) if total_retrievals > 0 else 0
+                    print(f"\n=== SHUFFLE SIMULATION RESULTS ===")
+                    print(f"Total Shuffles: {total_shuffles}")
+                    print(f"Total Retrievals: {total_retrievals}")
+                    print(f"Avg Shuffles per Retrieval: {avg_shuffles:.2f}")
+        
+                    return avg_shuffles
         return total_shuffles / max(1, total_retrievals)
     
     
