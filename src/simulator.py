@@ -227,111 +227,83 @@ class WarehouseSimulator:
 
     def _simulate_two_zone_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
         """
-        Simulate two-zone storage with pre-filled outbound zone.
+        Simulate 2-day operation with 10-hour shifts each.
         
-        Initial state:
-        - Outbound Zone (Rows 10-6): Filled with old pallets (fill_order 1-60)
-        - Inbound Zone (Rows 5-1): Empty, will fill from incoming pallets
+        Day 1: Storage fills up (inbound > outbound in morning)
+        Day 2: Storage is fuller, retrieval from back rows is blocked by front rows
+                → SHUFFLES SPIKE on Day 2 as AGVs move blocking pallets
         
-        Process:
-        1. Outbound retrieves from Rows 10-6 (oldest first)
-        2. When Outbound Zone depletes, shuffle inbound to outbound
-        3. Inbound continues filling Rows 5-1
-        
-        Returns average shuffles per outbound retrieval.
+        Inbound/Outbound ratio per hour:
+        - Hours 1-3, 11-13: Heavy inbound (70% inbound, 30% outbound)
+        - Hours 4-7, 14-17: Balanced (50/50)
+        - Hours 8-10, 18-20: Heavy outbound (30% inbound, 70% outbound)
         """
-        # Pre-fill outbound zone (Rows 10-6) with 60 old pallets
-        fill_counter = 0
-        for row in [10, 9, 8, 7, 6]:
-            for col in range(1, fifo_model.num_columns + 1):
-                for level in range(1, fifo_model.num_levels + 1):
-                    fill_counter += 1
-                    if fill_counter <= 60:  # Only fill first 60 positions
-                        fifo_model._slots[(row, col, level)].fill_order = fill_counter
-        
-        inbound_per_hour = int(self.throughput.effective_inbound_pallets / operating_hours)
-        outbound_per_hour = int(self.throughput.effective_outbound_pallets / operating_hours)
+        inbound_per_hour = int(self.throughput.effective_inbound_pallets / (operating_hours // 2))
+        outbound_per_hour = int(self.throughput.effective_outbound_pallets / (operating_hours // 2))
         
         total_shuffles = 0
         total_retrievals = 0
+        day_shuffles = [0, 0]  # Track shuffles per day
+        day_retrievals = [0, 0]  # Track retrievals per day
         
         for hour in range(1, operating_hours + 1):
+            day = (hour - 1) // 10  # Day 0 or 1
+            hour_in_day = ((hour - 1) % 10) + 1  # Hour 1-10 within the day
+            
             # Variable inbound/outbound ratio based on time of day
-            if hour <= 3:
+            if hour_in_day <= 3:
                 inbound_this_hour = int(inbound_per_hour * 1.4)  # 70% extra
                 outbound_this_hour = int(outbound_per_hour * 0.6)  # 30% reduced
-            elif hour <= 7:
+            elif hour_in_day <= 7:
                 inbound_this_hour = inbound_per_hour  # Balanced
                 outbound_this_hour = outbound_per_hour
             else:
                 inbound_this_hour = int(inbound_per_hour * 0.6)  # 30% reduced
                 outbound_this_hour = int(outbound_per_hour * 1.4)  # 70% extra
             
-            # INBOUND FIRST: Fill rows 5-1 (inbound zone)
+            # INBOUND: Add new pallets
             for _ in range(inbound_this_hour):
-                # Find next empty slot in inbound zone (rows 5-1)
-                placed = False
-                for row in range(1, 6):  # Rows 1-5
-                    if placed:
-                        break
-                    for col in range(1, fifo_model.num_columns + 1):
-                        if placed:
-                            break
-                        for level in range(1, fifo_model.num_levels + 1):
-                            if not fifo_model._slots[(row, col, level)].is_occupied:
-                                fill_counter += 1
-                                fifo_model._slots[(row, col, level)].fill_order = fill_counter
-                                placed = True
-                                break
+                fifo_model.inbound_put()
             
-            # OUTBOUND SECOND: Retrieve from rows 10-6 (outbound zone)
+            # OUTBOUND: Retrieve oldest pallets (with shuffling if blocked)
             for _ in range(outbound_this_hour):
                 oldest = fifo_model.oldest_accessible_slot()
                 if oldest:
-                    # Count blocking pallets
+                    # Count blocking pallets (newer ones in front of same column/level)
                     blockers = fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
                     total_shuffles += len(blockers)
+                    day_shuffles[day] += len(blockers)
                     
-                    # Perform shuffles
+                    # Shuffle them out of the way
                     for blocker in blockers:
                         fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
                     
-                    # Retrieve the oldest pallet
+                    # Now retrieve the oldest
                     fifo_model.outbound_get()
                     total_retrievals += 1
-                else:
-                    # Outbound zone empty, shuffle from inbound zone to outbound zone
-                    inbound_oldest = None
-                    for row in range(1, 6):  # Rows 1-5
-                        for col in range(1, fifo_model.num_columns + 1):
-                            for level in range(1, fifo_model.num_levels + 1):
-                                slot = fifo_model._slots[(row, col, level)]
-                                if slot.is_occupied:
-                                    if inbound_oldest is None or slot.fill_order < inbound_oldest.fill_order:
-                                        inbound_oldest = slot
-                    
-                    if inbound_oldest:
-                        # Find empty slot in outbound zone and move pallet there
-                        moved = False
-                        for row in range(6, 11):  # Rows 6-10
-                            if moved:
-                                break
-                            for col in range(1, fifo_model.num_columns + 1):
-                                if moved:
-                                    break
-                                for level in range(1, fifo_model.num_levels + 1):
-                                    if not fifo_model._slots[(row, col, level)].is_occupied:
-                                        fifo_model._slots[(row, col, level)].fill_order = inbound_oldest.fill_order
-                                        inbound_oldest.fill_order = None
-                                        total_shuffles += 1
-                                        moved = True
-                                        break
+                    day_retrievals[day] += 1
+            
+            # Print hour summary every 10 hours (end of day)
+            if hour % 10 == 0:
+                day_num = (hour // 10)
+                print(f"\n--- END OF DAY {day_num} ---")
+                print(f"Hour {hour}: Storage occupancy: {fifo_model.occupied_count}/{fifo_model.total_positions} ({fifo_model.occupancy_fraction*100:.1f}%)")
+                print(f"Day {day_num} Shuffles: {day_shuffles[day_num-1]}, Retrievals: {day_retrievals[day_num-1]}")
+                if day_retrievals[day_num-1] > 0:
+                    print(f"Day {day_num} Avg Shuffles/Retrieval: {day_shuffles[day_num-1]/day_retrievals[day_num-1]:.2f}")
         
         avg_shuffles = total_shuffles / max(1, total_retrievals) if total_retrievals > 0 else 0
-        print(f"\n=== SHUFFLE SIMULATION RESULTS ===")
-        print(f"Total Shuffles: {total_shuffles}")
-        print(f"Total Retrievals: {total_retrievals}")
-        print(f"Avg Shuffles per Retrieval: {avg_shuffles:.2f}")
+        
+        print(f"\n{'='*60}")
+        print(f"=== 2-DAY SHUFFLE SIMULATION RESULTS ===")
+        print(f"{'='*60}")
+        print(f"Day 1 - Shuffles: {day_shuffles[0]:3d} | Retrievals: {day_retrievals[0]:3d} | Avg: {day_shuffles[0]/max(1,day_retrievals[0]):.2f}")
+        print(f"Day 2 - Shuffles: {day_shuffles[1]:3d} | Retrievals: {day_retrievals[1]:3d} | Avg: {day_shuffles[1]/max(1,day_retrievals[1]):.2f}")
+        print(f"{'='*60}")
+        print(f"Total - Shuffles: {total_shuffles} | Retrievals: {total_retrievals}")
+        print(f"Overall Avg Shuffles per Retrieval: {avg_shuffles:.2f}")
+        print(f"Final Storage: {fifo_model.occupied_count}/{fifo_model.total_positions} occupied")
+        print(f"{'='*60}\n")
         
         return avg_shuffles
     
