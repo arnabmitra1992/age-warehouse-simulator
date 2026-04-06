@@ -252,14 +252,14 @@ class WarehouseSimulator:
             
             # Variable inbound/outbound ratio based on time of day
             if hour_in_day <= 3:
-                inbound_this_hour = int(inbound_per_hour * 1.4)  # 70% extra
-                outbound_this_hour = int(outbound_per_hour * 0.6)  # 30% reduced
+                inbound_this_hour = int(inbound_per_hour * 1.8)  # 80% (was 1.4)
+                outbound_this_hour = int(outbound_per_hour * 0.2)  # 20% (was 0.6)
             elif hour_in_day <= 7:
-                inbound_this_hour = inbound_per_hour  # Balanced
-                outbound_this_hour = outbound_per_hour
-            else:
-                inbound_this_hour = int(inbound_per_hour * 0.6)  # 30% reduced
-                outbound_this_hour = int(outbound_per_hour * 1.4)  # 70% extra
+                inbound_this_hour = inbound_per_hour  # Balanced (36)
+                outbound_this_hour = outbound_per_hour  # (36)
+            else:  # Hours 8-10
+                inbound_this_hour = int(inbound_per_hour * 0.2)  # 20% (was 0.6)
+                outbound_this_hour = int(outbound_per_hour * 1.8)  # 80% (was 1.4)
             
             # INBOUND: Add new pallets
             for _ in range(inbound_this_hour):
