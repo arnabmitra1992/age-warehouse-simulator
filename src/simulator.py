@@ -248,9 +248,7 @@ class WarehouseSimulator:
                     fill_counter += 1
                     if fill_counter <= 60:  # Only fill first 60 positions
                         fifo_model._slots[(row, col, level)].fill_order = fill_counter
-                        fifo_model._slots[(row, col, level)].is_occupied = True
         
-        # Start inbound counter after outbound zone
         inbound_per_hour = int(self.throughput.effective_inbound_pallets / operating_hours)
         outbound_per_hour = int(self.throughput.effective_outbound_pallets / operating_hours)
         
@@ -283,7 +281,6 @@ class WarehouseSimulator:
                             if not fifo_model._slots[(row, col, level)].is_occupied:
                                 fill_counter += 1
                                 fifo_model._slots[(row, col, level)].fill_order = fill_counter
-                                fifo_model._slots[(row, col, level)].is_occupied = True
                                 placed = True
                                 break
             
@@ -314,7 +311,7 @@ class WarehouseSimulator:
                                         inbound_oldest = slot
                     
                     if inbound_oldest:
-                        # Find empty slot in outbound zone
+                        # Find empty slot in outbound zone and move pallet there
                         moved = False
                         for row in range(6, 11):  # Rows 6-10
                             if moved:
@@ -325,8 +322,7 @@ class WarehouseSimulator:
                                 for level in range(1, fifo_model.num_levels + 1):
                                     if not fifo_model._slots[(row, col, level)].is_occupied:
                                         fifo_model._slots[(row, col, level)].fill_order = inbound_oldest.fill_order
-                                        inbound_oldest.is_occupied = False
-                                        fifo_model._slots[(row, col, level)].is_occupied = True
+                                        inbound_oldest.fill_order = None
                                         total_shuffles += 1
                                         moved = True
                                         break
