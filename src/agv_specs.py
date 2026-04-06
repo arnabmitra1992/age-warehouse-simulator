@@ -26,7 +26,7 @@ class XQE122Specs:
 class XPL201Specs:
     """XPL_201 Handover Robot specifications."""
     forward_speed_ms: float = 1.5       # m/s
-    reverse_speed_ms: float = 0.5       # m/s
+    reverse_speed_ms: float = 0.3       # m/s
     pickup_time_s: float = 30           # seconds
     dropoff_time_s: float = 30          # seconds
     name: str = "XPL_201"
@@ -82,7 +82,7 @@ AGV_SPECS: dict = {
     "XPL_201": {
         "name": "XPL_201",
         "forward_speed": 1.5,       # m/s - empty travel
-        "reverse_speed": 0.5,       # m/s - loaded travel (fork engaged)
+        "reverse_speed": 0.3,       # m/s - loaded travel (fork engaged)
         "lifting_speed": None,      # Not applicable – only 20 cm lift
         "capacity": 2000,           # kg
         "aisle_width": 2.6,         # m
