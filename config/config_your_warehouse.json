@@ -25,7 +25,15 @@
       "Head_Aisle_to_Rack_Aisle": 6000,
       "Rack_Aisle_Length": 20000,
       "Head_Aisle_to_Stacking": 10000,
-      "Inbound_Depth_mm": 2000
+      "Inbound_Depth_mm": 2000,
+      "Rest_to_Production": 5000,
+      "Production_to_Storage_Entry": 3000,
+      "Head_Aisle_to_Outbound": 10000
+    },
+    "Aisle_Widths_mm": {
+      "Inbound_Access_Width_mm": 3900,
+      "Head_Aisle_Width_mm": 3500,
+      "Outbound_Access_Width_mm": 3900
     }
   },
 
@@ -37,21 +45,32 @@
   },
 
   "Ground_Stacking_Configuration": {
+    "Rows": 10,
+    "Columns": 12,
+    "Levels": 3,
     "Box_Dimensions": {
       "Length_mm": 1300,
       "Width_mm": 950,
       "Height_mm": 1840
     },
     "Storage_Area_Dimensions": {
-      "Length_mm": 15000,
-      "Width_mm": 10000
+      "Length_mm": 21000,
+      "Width_mm": 11500
     },
     "Fork_Entry_Side": "Length",
     "Clearance_mm": 200
   },
 
+  "Traffic_Control": {
+    "Enabled": true,
+    "XQE_Min_Aisle_Width_mm": 2840,
+    "XQE_Bidirectional_Width_mm": 3500
+  },
+
   "Throughput_Configuration": {
     "Total_Daily_Pallets": 1000,
+    "Total_Daily_Inbound_Pallets": 1000,
+    "Total_Daily_Outbound_Pallets": 1000,
     "Operating_Hours": 16,
     "XPL_201_Percentage": 0,
     "XQE_Rack_Percentage": 0,

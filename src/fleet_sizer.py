@@ -14,6 +14,19 @@ class ThroughputConfig:
     xqe_stacking_percentage: float = 20  # % of pallets handled by XQE stacking
     utilization_target: float = 0.75
     buffer_capacity_pallets: int = 50
+    # Separate inbound/outbound daily pallets (new outbound workflow)
+    total_daily_inbound_pallets: int = 0   # 0 = use total_daily_pallets
+    total_daily_outbound_pallets: int = 0  # 0 = use total_daily_pallets
+
+    @property
+    def effective_inbound_pallets(self) -> int:
+        """Inbound pallets to process per day."""
+        return self.total_daily_inbound_pallets or self.total_daily_pallets
+
+    @property
+    def effective_outbound_pallets(self) -> int:
+        """Outbound pallets to process per day."""
+        return self.total_daily_outbound_pallets or self.total_daily_pallets
 
     @property
     def xpl201_daily_pallets(self) -> float:
@@ -116,4 +129,6 @@ def throughput_config_from_dict(d: dict) -> ThroughputConfig:
         xqe_stacking_percentage=d.get("XQE_Stacking_Percentage", 20),
         utilization_target=d.get("Utilization_Target", 0.75),
         buffer_capacity_pallets=d.get("Buffer_Capacity_Pallets", 50),
+        total_daily_inbound_pallets=d.get("Total_Daily_Inbound_Pallets", 0),
+        total_daily_outbound_pallets=d.get("Total_Daily_Outbound_Pallets", 0),
     )

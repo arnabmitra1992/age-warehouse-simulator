@@ -9,13 +9,18 @@ from dataclasses import asdict
 from typing import Dict, Any, Optional
 
 from .agv_specs import XQE122Specs, XPL201Specs, TurnSpecs, xqe122_from_dict, xpl201_from_dict
-from .warehouse_layout import WarehouseDistances, distances_from_dict
+from .warehouse_layout import WarehouseDistances, AisleWidths, distances_from_dict, aisle_widths_from_dict
 from .rack_storage import RackConfig, rack_config_from_dict
 from .ground_stacking import GroundStackingConfig, ground_stacking_config_from_dict
+from .fifo_storage import FIFOStorageModel
+from .traffic_control import TrafficControlConfig, TrafficControlModel, traffic_control_config_from_dict
 from .cycle_calculator import (
     xpl201_handover_cycle,
     xqe122_rack_average_cycle,
     xqe122_stacking_average_cycle,
+    xqe122_inbound_average_cycle,
+    xqe122_outbound_average_cycle,
+    xqe122_shuffling_average_cycle,
     CycleResult,
 )
 from .fleet_sizer import (
@@ -28,11 +33,15 @@ from .visualizer import (
     xpl201_workflow_diagram,
     xqe122_rack_workflow_diagram,
     xqe122_stacking_workflow_diagram,
+    xqe122_inbound_workflow_diagram,
+    xqe122_outbound_workflow_diagram,
+    xqe122_shuffling_workflow_diagram,
     rack_capacity_report,
     stacking_capacity_report,
     cycle_time_report,
     fleet_report,
     performance_report,
+    outbound_performance_report,
 )
 
 
@@ -49,6 +58,16 @@ class SimulationResults:
         self.xqe_rack_fleet: Optional[FleetSizeResult] = None
         self.xqe_stack_fleet: Optional[FleetSizeResult] = None
         self.throughput_config: Optional[ThroughputConfig] = None
+        # New outbound workflow results
+        self.inbound_cycle: Optional[CycleResult] = None
+        self.outbound_cycle: Optional[CycleResult] = None
+        self.shuffling_cycle: Optional[CycleResult] = None
+        self.inbound_fleet: Optional[FleetSizeResult] = None
+        self.outbound_fleet: Optional[FleetSizeResult] = None
+        self.shuffling_fleet: Optional[FleetSizeResult] = None
+        self.avg_shuffles_per_outbound: float = 0.0
+        self.fifo_model: Optional[FIFOStorageModel] = None
+        self.traffic_model: Optional[TrafficControlModel] = None
 
     @property
     def total_fleet_size(self) -> int:
@@ -58,8 +77,17 @@ class SimulationResults:
                 total += r.fleet_size
         return total
 
+    @property
+    def total_outbound_fleet_size(self) -> int:
+        """Total fleet for the inbound + outbound + shuffling workflows."""
+        total = 0
+        for r in [self.inbound_fleet, self.outbound_fleet, self.shuffling_fleet]:
+            if r:
+                total += r.fleet_size
+        return total
+
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        base = {
             "rack_capacity": {
                 "positions_per_shelf": self.rack_config.positions_per_shelf if self.rack_config else 0,
                 "num_levels": self.rack_config.num_levels if self.rack_config else 0,
@@ -83,6 +111,19 @@ class SimulationResults:
                 "total": self.total_fleet_size,
             },
         }
+        # Outbound workflow metrics (if computed)
+        if self.inbound_cycle or self.outbound_cycle:
+            base["outbound_workflow"] = {
+                "inbound_cycle_s": self.inbound_cycle.total_time_s if self.inbound_cycle else 0,
+                "outbound_cycle_s": self.outbound_cycle.total_time_s if self.outbound_cycle else 0,
+                "shuffling_cycle_s": self.shuffling_cycle.total_time_s if self.shuffling_cycle else 0,
+                "avg_shuffles_per_outbound": self.avg_shuffles_per_outbound,
+                "inbound_fleet": self.inbound_fleet.fleet_size if self.inbound_fleet else 0,
+                "outbound_fleet": self.outbound_fleet.fleet_size if self.outbound_fleet else 0,
+                "shuffling_fleet": self.shuffling_fleet.fleet_size if self.shuffling_fleet else 0,
+                "total_outbound_fleet": self.total_outbound_fleet_size,
+            }
+        return base
 
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent)
@@ -116,12 +157,16 @@ class WarehouseSimulator:
         )
         layout_cfg = self.config.get("Warehouse_Layout", {})
         self.distances = distances_from_dict(layout_cfg.get("Distances_mm", {}))
+        self.aisle_widths = aisle_widths_from_dict(layout_cfg.get("Aisle_Widths_mm", {}))
         self.rack = rack_config_from_dict(self.config.get("Rack_Configuration", {}))
         self.stacking = ground_stacking_config_from_dict(
             self.config.get("Ground_Stacking_Configuration", {})
         )
         self.throughput = throughput_config_from_dict(
             self.config.get("Throughput_Configuration", {})
+        )
+        self.traffic_cfg = traffic_control_config_from_dict(
+            self.config.get("Traffic_Control", {})
         )
 
     def run(self) -> SimulationResults:
@@ -132,7 +177,7 @@ class WarehouseSimulator:
         results.stacking_config = self.stacking
         results.throughput_config = self.throughput
 
-        # Cycle time calculations
+        # --- Legacy cycle time calculations (kept for backward compatibility) ---
         results.xpl_cycle = xpl201_handover_cycle(self.xpl, self.turns, self.distances)
         results.xqe_rack_cycle = xqe122_rack_average_cycle(
             self.xqe, self.turns, self.distances, self.rack
@@ -141,7 +186,7 @@ class WarehouseSimulator:
             self.xqe, self.turns, self.distances, self.stacking
         )
 
-        # Fleet sizing
+        # --- Legacy fleet sizing ---
         results.xpl_fleet = calculate_fleet_size(
             daily_pallets=self.throughput.xpl201_daily_pallets,
             avg_cycle_time_s=results.xpl_cycle.total_time_s,
@@ -166,6 +211,71 @@ class WarehouseSimulator:
             vehicle_type="XQE_122",
             workflow="Ground Stacking",
         )
+
+        # --- New inbound / outbound workflow ---
+        results.inbound_cycle = xqe122_inbound_average_cycle(
+            self.xqe, self.turns, self.distances, self.stacking
+        )
+        results.outbound_cycle = xqe122_outbound_average_cycle(
+            self.xqe, self.turns, self.distances, self.stacking
+        )
+        results.shuffling_cycle = xqe122_shuffling_average_cycle(
+            self.xqe, self.distances, self.stacking
+        )
+
+        # FIFO storage model for shuffling statistics
+        results.fifo_model = FIFOStorageModel(
+            num_rows=self.stacking.num_rows,
+            num_columns=self.stacking.num_columns,
+            num_levels=self.stacking.num_levels,
+        )
+        # Simulate half-full storage to estimate average shuffles
+        half_full = self.stacking.total_positions // 2
+        for _ in range(half_full):
+            results.fifo_model.inbound_put()
+        results.avg_shuffles_per_outbound = results.fifo_model.average_shuffles_per_outbound()
+
+        # Fleet sizing for inbound / outbound
+        results.inbound_fleet = calculate_fleet_size(
+            daily_pallets=self.throughput.effective_inbound_pallets,
+            avg_cycle_time_s=results.inbound_cycle.total_time_s,
+            operating_hours=self.throughput.operating_hours,
+            utilization_target=self.throughput.utilization_target,
+            vehicle_type="XQE_122",
+            workflow="Inbound",
+        )
+        results.outbound_fleet = calculate_fleet_size(
+            daily_pallets=self.throughput.effective_outbound_pallets,
+            avg_cycle_time_s=results.outbound_cycle.total_time_s,
+            operating_hours=self.throughput.operating_hours,
+            utilization_target=self.throughput.utilization_target,
+            vehicle_type="XQE_122",
+            workflow="Outbound",
+        )
+        # Shuffling fleet: extra cycles needed due to FIFO blocking
+        shuffling_daily_moves = (
+            self.throughput.effective_outbound_pallets * results.avg_shuffles_per_outbound
+        )
+        results.shuffling_fleet = calculate_fleet_size(
+            daily_pallets=max(0.0, shuffling_daily_moves),
+            avg_cycle_time_s=results.shuffling_cycle.total_time_s,
+            operating_hours=self.throughput.operating_hours,
+            utilization_target=self.throughput.utilization_target,
+            vehicle_type="XQE_122",
+            workflow="Shuffling",
+        )
+
+        # Traffic control model
+        total_agvs = results.total_outbound_fleet_size or 1
+        results.traffic_model = TrafficControlModel(
+            aisle_widths=self.aisle_widths,
+            config=self.traffic_cfg,
+            total_agv_count=total_agvs,
+            inbound_cycle_s=results.inbound_cycle.total_time_s,
+            outbound_cycle_s=results.outbound_cycle.total_time_s,
+            operating_hours=self.throughput.operating_hours,
+        )
+
         return results
 
     def full_report(self, results: Optional[SimulationResults] = None) -> str:
@@ -177,11 +287,22 @@ class WarehouseSimulator:
             xpl201_workflow_diagram(),
             xqe122_rack_workflow_diagram(),
             xqe122_stacking_workflow_diagram(),
+            xqe122_inbound_workflow_diagram(),
+            xqe122_outbound_workflow_diagram(),
+            xqe122_shuffling_workflow_diagram(),
             rack_capacity_report(results.rack_config),
             stacking_capacity_report(results.stacking_config),
             cycle_time_report("XPL_201 HANDOVER CYCLE TIME", results.xpl_cycle),
             cycle_time_report("XQE_122 RACK STORAGE AVERAGE CYCLE TIME", results.xqe_rack_cycle),
             cycle_time_report("XQE_122 GROUND STACKING AVERAGE CYCLE TIME", results.xqe_stack_cycle),
+            cycle_time_report("XQE_122 INBOUND CYCLE TIME (avg)", results.inbound_cycle),
+            cycle_time_report("XQE_122 OUTBOUND CYCLE TIME (avg)", results.outbound_cycle),
+        ]
+        if results.shuffling_cycle and results.shuffling_cycle.total_time_s > 0:
+            sections.append(
+                cycle_time_report("XQE_122 SHUFFLING CYCLE TIME (avg)", results.shuffling_cycle)
+            )
+        sections += [
             fleet_report([results.xpl_fleet, results.xqe_rack_fleet, results.xqe_stack_fleet]),
             performance_report(
                 results.throughput_config,
@@ -190,6 +311,22 @@ class WarehouseSimulator:
                 results.xqe_stack_cycle,
             ),
         ]
+        traffic_text = ""
+        if results.traffic_model:
+            traffic_text = results.traffic_model.report()
+        sections.append(
+            outbound_performance_report(
+                results.throughput_config,
+                results.inbound_cycle,
+                results.outbound_cycle,
+                results.shuffling_cycle,
+                results.inbound_fleet,
+                results.outbound_fleet,
+                results.shuffling_fleet,
+                traffic_report=traffic_text,
+                avg_shuffles_per_cycle=results.avg_shuffles_per_outbound,
+            )
+        )
         return "\n".join(sections)
 
 
