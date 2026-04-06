@@ -6,6 +6,7 @@ Usage:
   python main.py run --config config/config_template.json
   python main.py run --config config/config_medium.json --output results.json
   python main.py run --config config/config_medium.json --visualize --charts-dir ./charts
+  python main.py run --config config/config_your_warehouse.json --traffic-control --visualize --charts-dir ./output
   python main.py demo --example medium
   python main.py demo --example medium --throughput 50
 """
@@ -31,7 +32,7 @@ EXAMPLE_CONFIGS = {
 def cmd_run(args):
     config = load_config(args.config)
     sim = WarehouseSimulator(config)
-    results = sim.run()
+    results = sim.run(traffic_control_enabled=args.traffic_control)
     report = sim.full_report(results)
     print(report)
 
@@ -165,6 +166,10 @@ def main():
                             help="Export results to file (.json or .csv)")
     run_parser.add_argument("--visualize", action="store_true",
                             help="Generate visualization charts")
+    run_parser.add_argument("--traffic-control", action="store_true",
+                            help="Enable traffic control simulation – models aisle queue wait "
+                                 "times using XQE aisle-width rules "
+                                 "(≥3.5 m → 2 XQEs simultaneous; 2.84–3.49 m → 1 XQE)")
     run_parser.add_argument("--charts-dir", default="./charts",
                             help="Directory to save chart images (default: ./charts)")
     run_parser.set_defaults(func=cmd_run)
