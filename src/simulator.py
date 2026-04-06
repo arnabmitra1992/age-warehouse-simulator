@@ -236,10 +236,11 @@ class WarehouseSimulator:
         Inbound/Outbound ratio per hour:
         - Hours 1-3, 11-13: Heavy inbound (70% inbound, 30% outbound)
         - Hours 4-7, 14-17: Balanced (50/50)
-        - Hours 8-10, 18-20: Heavy outbound (30% inbound, 70% outbound)
+        - Hours 8-10, 18-20: Heavy outbound (30% inbound, 70% outboun
+        """
+        Simulate 2-day operation with 10-hour shifts each.
         """
         # PRE-FILL storage to 70% with old pallets (fill_order 1-252)
-        # This simulates a warehouse that starts with inventory
         fill_counter = 0
         for row in range(1, fifo_model.num_rows + 1):
             for col in range(1, fifo_model.num_columns + 1):
@@ -247,11 +248,10 @@ class WarehouseSimulator:
                     if fill_counter < 252:  # 70% of 360
                         fill_counter += 1
                         fifo_model._slots[(row, col, level)].fill_order = fill_counter
-                    else:
-                        break
-            else:
-                continue
-            break
+        
+        # SET COUNTER to continue from 252 so new inbound starts at 253
+        fifo_model._counter = 252
+        
         inbound_per_hour = int(self.throughput.effective_inbound_pallets / (operating_hours // 2))
         outbound_per_hour = int(self.throughput.effective_outbound_pallets / (operating_hours // 2))
         
