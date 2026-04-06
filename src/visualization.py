@@ -26,6 +26,8 @@ import numpy as np
 
 from .agv_specs import AGV_SPECS
 from .fleet_sizing import FleetSizingResult, AisleAnalysis
+from .fleet_sizer import FleetSizeResult
+from .cycle_calculator import CycleResult
 
 logger = logging.getLogger(__name__)
 
@@ -490,6 +492,299 @@ class WarehouseVisualizer:
 
         logger.info("PDF report saved to %s", output_path)
         return output_path
+
+    # ------------------------------------------------------------------
+    # New-pipeline: fleet size & utilization chart
+    # ------------------------------------------------------------------
+
+    def plot_fleet_and_utilization(
+        self,
+        fleet_results: List[FleetSizeResult],
+        save_path: Optional[str] = None,
+        show: bool = False,
+    ) -> plt.Figure:
+        """
+        Bar chart comparing fleet sizes and utilizations for the new pipeline.
+
+        Parameters
+        ----------
+        fleet_results : list of FleetSizeResult
+            One entry per workflow (XPL_201, XQE_122 Rack, XQE_122 Stack).
+        save_path : str, optional
+            File path to save the figure.
+        show : bool
+            If True, display interactively.
+        """
+        labels = [f"{r.vehicle_type}\n({r.workflow})" for r in fleet_results]
+        fleet_sizes = [r.fleet_size for r in fleet_results]
+        utils = [r.utilization_percent for r in fleet_results]
+        util_targets = [r.utilization_target * 100 for r in fleet_results]
+
+        x = np.arange(len(labels))
+        colors = [COLORS.get(r.vehicle_type, "#95A5A6") for r in fleet_results]
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+        fig.patch.set_facecolor(COLORS["background"])
+
+        bars1 = ax1.bar(x, fleet_sizes, color=colors, alpha=0.85, edgecolor="white")
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(labels, fontsize=9)
+        ax1.set_title("Fleet Size by Workflow", fontweight="bold")
+        ax1.set_ylabel("Number of AGVs")
+        ax1.set_ylim(0, max(fleet_sizes) * 1.4 if fleet_sizes else 5)
+        ax1.grid(axis="y", alpha=0.3)
+        for bar, val in zip(bars1, fleet_sizes):
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.05,
+                str(val),
+                ha="center", va="bottom", fontweight="bold",
+            )
+
+        bars2 = ax2.bar(x, utils, color=colors, alpha=0.85, edgecolor="white")
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(labels, fontsize=9)
+        ax2.set_title("Fleet Utilization by Workflow", fontweight="bold")
+        ax2.set_ylabel("Utilization (%)")
+        ax2.set_ylim(0, 110)
+        ax2.grid(axis="y", alpha=0.3)
+        # Draw a per-group target line so each workflow's own target is shown
+        for i, tgt in enumerate(util_targets):
+            label = f"Target ({tgt:.0f}%)" if i == 0 else None
+            ax2.hlines(
+                tgt,
+                i - 0.4, i + 0.4,
+                colors="#E74C3C", linestyles="--", linewidth=1.5,
+                label=label,
+            )
+        ax2.legend(fontsize=9)
+        for bar, val in zip(bars2, utils):
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.5,
+                f"{val:.1f}%",
+                ha="center", va="bottom", fontweight="bold",
+            )
+
+        plt.tight_layout()
+        if save_path:
+            fig.savefig(save_path, dpi=150, bbox_inches="tight")
+            logger.info("Fleet utilization chart saved to %s", save_path)
+        if show:
+            plt.show()
+        return fig
+
+    # ------------------------------------------------------------------
+    # New-pipeline: cycle time phase chart
+    # ------------------------------------------------------------------
+
+    def plot_cycle_time_phases(
+        self,
+        cycle_results: Dict[str, CycleResult],
+        save_path: Optional[str] = None,
+        show: bool = False,
+    ) -> plt.Figure:
+        """
+        Horizontal grouped bar chart of cycle time phases per workflow.
+
+        Parameters
+        ----------
+        cycle_results : dict
+            {label: CycleResult}  e.g. {"XPL_201 Handover": result, ...}
+        save_path : str, optional
+            File path to save the figure.
+        show : bool
+            If True, display interactively.
+        """
+        # Group phases into high-level categories
+        def _categorize(phase_name: str) -> str:
+            n = phase_name.lower()
+            if "pickup" in n:
+                return "Pickup"
+            if "dropoff" in n:
+                return "Dropoff"
+            if "lift" in n or "lower" in n:
+                return "Lift / Lower"
+            if "turn" in n:
+                return "Turns"
+            if "rev" in n or "reverse" in n:
+                return "Reverse Travel"
+            return "Forward Travel"
+
+        category_colors = {
+            "Forward Travel": "#3498DB",
+            "Reverse Travel": "#E67E22",
+            "Lift / Lower": "#9B59B6",
+            "Pickup": "#2ECC71",
+            "Dropoff": "#27AE60",
+            "Turns": "#F39C12",
+        }
+        all_categories = list(category_colors.keys())
+
+        labels = list(cycle_results.keys())
+        data: Dict[str, List[float]] = {cat: [] for cat in all_categories}
+        for label in labels:
+            res = cycle_results[label]
+            cat_totals: Dict[str, float] = {cat: 0.0 for cat in all_categories}
+            for phase in res.phases:
+                cat = _categorize(phase.name)
+                cat_totals[cat] += phase.duration_s
+            for cat in all_categories:
+                data[cat].append(cat_totals[cat])
+
+        fig, ax = plt.subplots(figsize=(12, 5))
+        fig.patch.set_facecolor(COLORS["background"])
+        x = np.arange(len(labels))
+        bottoms = np.zeros(len(labels))
+
+        for cat in all_categories:
+            vals = np.array(data[cat])
+            if vals.sum() > 0:
+                ax.bar(
+                    x, vals, bottom=bottoms,
+                    label=cat, color=category_colors[cat],
+                    alpha=0.85, edgecolor="white",
+                )
+                bottoms += vals
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, fontsize=10)
+        ax.set_title("Cycle Time Breakdown by Workflow", fontweight="bold")
+        ax.set_ylabel("Time (seconds)")
+        ax.legend(loc="upper right", fontsize=8, framealpha=0.9)
+        ax.grid(axis="y", alpha=0.3)
+
+        for i, total in enumerate(bottoms):
+            ax.text(
+                i, total + 1,
+                f"{total:.0f}s\n({total / 60:.1f} min)",
+                ha="center", va="bottom", fontsize=9, fontweight="bold",
+            )
+
+        plt.tight_layout()
+        if save_path:
+            fig.savefig(save_path, dpi=150, bbox_inches="tight")
+            logger.info("Cycle time chart saved to %s", save_path)
+        if show:
+            plt.show()
+        return fig
+
+    # ------------------------------------------------------------------
+    # New-pipeline: multi-page PDF report
+    # ------------------------------------------------------------------
+
+    def generate_simulation_pdf(
+        self,
+        fleet_results: List[FleetSizeResult],
+        cycle_results: Dict[str, CycleResult],
+        output_path: str = "simulation_report.pdf",
+        warehouse_name: str = "Warehouse",
+    ) -> str:
+        """
+        Generate a multi-page PDF report from new-pipeline simulation results.
+
+        Pages:
+          1. Title / summary page
+          2. Fleet size & utilization chart
+          3. Cycle time breakdown chart
+
+        Parameters
+        ----------
+        fleet_results : list of FleetSizeResult
+        cycle_results : dict of {label: CycleResult}
+        output_path : str
+            Destination path for the PDF file.
+        warehouse_name : str
+            Title used on the report cover page.
+
+        Returns
+        -------
+        str
+            Path to the generated PDF.
+        """
+        with PdfPages(output_path) as pdf:
+            # Page 1: title / summary
+            fig_title = self._make_simulation_title_page(
+                fleet_results, warehouse_name
+            )
+            pdf.savefig(fig_title, bbox_inches="tight")
+            plt.close(fig_title)
+
+            # Page 2: fleet size & utilization
+            fig_fleet = self.plot_fleet_and_utilization(fleet_results)
+            pdf.savefig(fig_fleet, bbox_inches="tight")
+            plt.close(fig_fleet)
+
+            # Page 3: cycle time breakdown
+            if cycle_results:
+                fig_cycles = self.plot_cycle_time_phases(cycle_results)
+                pdf.savefig(fig_cycles, bbox_inches="tight")
+                plt.close(fig_cycles)
+
+            d = pdf.infodict()
+            d["Title"] = f"Warehouse Simulation Report – {warehouse_name}"
+            d["Author"] = "Warehouse AGV Simulator"
+            d["Subject"] = "AGV Fleet Simulation"
+            d["Keywords"] = "AGV, warehouse, simulation, XQE_122, XPL_201"
+
+        logger.info("Simulation PDF report saved to %s", output_path)
+        return output_path
+
+    # ------------------------------------------------------------------
+    # Private helper – new-pipeline title page
+    # ------------------------------------------------------------------
+
+    def _make_simulation_title_page(
+        self,
+        fleet_results: List[FleetSizeResult],
+        warehouse_name: str,
+    ) -> plt.Figure:
+        total_fleet = sum(r.fleet_size for r in fleet_results)
+
+        fig = plt.figure(figsize=(11, 8.5))
+        fig.patch.set_facecolor("#2C3E50")
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.set_axis_off()
+        ax.set_facecolor("#2C3E50")
+
+        ax.text(
+            0.5, 0.92, "Warehouse AGV Simulation Report",
+            ha="center", va="center", transform=ax.transAxes,
+            fontsize=24, fontweight="bold", color="white",
+        )
+        ax.text(
+            0.5, 0.84, warehouse_name,
+            ha="center", va="center", transform=ax.transAxes,
+            fontsize=18, color="#BDC3C7",
+        )
+        ax.text(
+            0.5, 0.76, f"Total fleet size: {total_fleet} AGV(s)",
+            ha="center", va="center", transform=ax.transAxes,
+            fontsize=13, color="#ECF0F1",
+        )
+
+        y_pos = 0.62
+        for r in fleet_results:
+            row = (
+                f"{r.vehicle_type} ({r.workflow}):  "
+                f"Fleet {r.fleet_size}  |  "
+                f"Cycle {r.avg_cycle_time_s:.0f}s  |  "
+                f"Util {r.utilization_percent:.1f}%"
+            )
+            ax.text(
+                0.5, y_pos, row,
+                ha="center", va="center", transform=ax.transAxes,
+                fontsize=11, color="#ECF0F1", family="monospace",
+            )
+            y_pos -= 0.08
+
+        ax.text(
+            0.5, 0.06,
+            "Generated by Warehouse AGV Simulator  |  XQE_122 & XPL_201 Fleet Sizing",
+            ha="center", va="center", transform=ax.transAxes,
+            fontsize=9, color="#7F8C8D",
+        )
+        return fig
 
     # ------------------------------------------------------------------
     # Private helpers
