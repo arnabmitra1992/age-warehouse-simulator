@@ -234,7 +234,10 @@ class WarehouseSimulator:
         # This creates a situation where old pallets are deep in storage.
         # Use dynamic back rows derived from the actual model dimensions.
         n = fifo_model.num_rows
-        back_rows = [r for r in range(n, max(0, n - 2), -1)]  # e.g. [9, 8] for n=9
+        # Rows are 1-indexed (row 1 = front, row n = back).
+        # Select the last 2 rows (or fewer if the model has only 1 row).
+        # e.g. n=10 → [10, 9]; n=9 → [9, 8]; n=1 → [1]; n=0 → []
+        back_rows = list(range(n, max(0, n - 2), -1))
         fill_counter = 0
         for row in back_rows:
             for col in range(1, fifo_model.num_columns + 1):
