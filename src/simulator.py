@@ -169,8 +169,19 @@ class WarehouseSimulator:
             self.config.get("Traffic_Control", {})
         )
 
-    def run(self) -> SimulationResults:
-        """Execute the full simulation and return results."""
+    def run(self, traffic_control_enabled: bool = False) -> SimulationResults:
+        """Execute the full simulation and return results.
+
+        Parameters
+        ----------
+        traffic_control_enabled:
+            When *True* the traffic-control queuing model is activated and
+            aisle wait-time overheads are included in the outbound performance
+            report.  Defaults to *False* so that a plain ``sim.run()`` call
+            (e.g. from unit-tests or the ``demo`` command) omits the extra
+            overhead unless explicitly requested.
+        """
+        self.traffic_cfg.enabled = traffic_control_enabled
         self.throughput.validate()
         results = SimulationResults()
         results.rack_config = self.rack
