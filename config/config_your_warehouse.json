@@ -1,1 +1,62 @@
-{"warehouseLayout": {"inbound": {"conveyor": "production"}, "pickup": {"type": "XQE", "height": 1.5}, "storage": {"positions": 120, "levels": 3, "totalPositions": 360}, "palletDimensions": {"length": 1300, "width": 950, "height": 1840}, "outbound": {"storageType": "FIFO"}}}
+{
+  "AGV_Specifications": {
+    "XQE_122": {
+      "forward_speed_ms": 1.0,
+      "reverse_speed_ms": 0.3,
+      "lift_speed_ms": 0.2,
+      "max_lift_height_mm": 4500,
+      "pickup_time_s": 30,
+      "dropoff_time_s": 30
+    },
+    "XPL_201": {
+      "forward_speed_ms": 1.5,
+      "reverse_speed_ms": 0.5,
+      "pickup_time_s": 30,
+      "dropoff_time_s": 30
+    },
+    "Turn_90_degrees_s": 10
+  },
+
+  "Warehouse_Layout": {
+    "Distances_mm": {
+      "Rest_to_Inbound": 5000,
+      "Rest_to_Head_Aisle": 3000,
+      "Head_Aisle_to_Handover": 8000,
+      "Head_Aisle_to_Rack_Aisle": 6000,
+      "Rack_Aisle_Length": 20000,
+      "Head_Aisle_to_Stacking": 10000,
+      "Inbound_Depth_mm": 2000
+    }
+  },
+
+  "Rack_Configuration": {
+    "Rack_Length_mm": 0,
+    "Pallet_Width_mm": 0,
+    "Shelf_Height_Spacing_mm": 0,
+    "Position_Spacing_mm": 0
+  },
+
+  "Ground_Stacking_Configuration": {
+    "Box_Dimensions": {
+      "Length_mm": 1300,
+      "Width_mm": 950,
+      "Height_mm": 1840
+    },
+    "Storage_Area_Dimensions": {
+      "Length_mm": 15000,
+      "Width_mm": 10000
+    },
+    "Fork_Entry_Side": "Length",
+    "Clearance_mm": 200
+  },
+
+  "Throughput_Configuration": {
+    "Total_Daily_Pallets": 1000,
+    "Operating_Hours": 16,
+    "XPL_201_Percentage": 0,
+    "XQE_Rack_Percentage": 0,
+    "XQE_Stacking_Percentage": 100,
+    "Utilization_Target": 0.75,
+    "Buffer_Capacity_Pallets": 50
+  }
+}
