@@ -230,10 +230,13 @@ class WarehouseSimulator:
         Simulate 2-day operation with 10-hour shifts each.
         Pre-fill storage so new inbound blocks old outbound retrieval.
         """
-        # PRE-FILL: Fill BACK rows (9-10) with OLD pallets (fill_order 1-72)
-        # This creates a situation where old pallets are deep in storage
+        # PRE-FILL: Fill the last 2 back rows with OLD pallets.
+        # This creates a situation where old pallets are deep in storage.
+        # Use dynamic back rows derived from the actual model dimensions.
+        n = fifo_model.num_rows
+        back_rows = [r for r in range(n, max(0, n - 2), -1)]  # e.g. [9, 8] for n=9
         fill_counter = 0
-        for row in [10, 9]:  # Back rows
+        for row in back_rows:
             for col in range(1, fifo_model.num_columns + 1):
                 for level in range(1, fifo_model.num_levels + 1):
                     fill_counter += 1
@@ -265,15 +268,15 @@ class WarehouseSimulator:
                 inbound_this_hour = int(inbound_per_hour * 0.25)  # 10%
                 outbound_this_hour = int(outbound_per_hour * 2.25)  # 90%
             
-            # INBOUND: New pallets fill front rows (rows 1-8)
+            # INBOUND: New pallets fill front rows
             for _ in range(inbound_this_hour):
                 fifo_model.inbound_put()
             
-            # OUTBOUND: Retrieve from BACK ROWS (9-10) where old pallets are, even if blocked
+            # OUTBOUND: Retrieve from back rows where old pallets are, even if blocked
             for _ in range(outbound_this_hour):
-                # Find oldest pallet in back rows (9-10) - where we pre-filled old pallets
+                # Find oldest pallet in back rows - where we pre-filled old pallets
                 oldest_in_back = None
-                for row in [10, 9]:  # Back rows first
+                for row in back_rows:
                     for col in range(1, fifo_model.num_columns + 1):
                         for level in range(1, fifo_model.num_levels + 1):
                             slot = fifo_model._slots[(row, col, level)]

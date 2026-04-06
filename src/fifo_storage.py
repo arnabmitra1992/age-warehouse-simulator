@@ -90,13 +90,13 @@ class FIFOStorageModel:
 
     def inbound_put(self) -> Optional[Tuple[int, int, int]]:
         """
-        Place a new pallet in the next available back-to-front slot.
+        Place a new pallet in the next available front-to-back slot.
         Returns (row, col, level) of the placed position, or None if full.
 
-        Fill order: iterate rows back→front (10→1), columns left→right, levels bottom→top.
-        This ensures oldest pallets are at Row 10 (back/far end).
+        Fill order: iterate rows front→back (1→N), columns left→right, levels bottom→top.
+        Row 1 (front) is filled first; row N (back) is filled last.
         """
-        for row in range(self.num_rows, 0, -1):  # CHANGED: range(10, 0, -1) instead of range(1, 11)
+        for row in range(1, self.num_rows + 1):
             for col in range(1, self.num_columns + 1):
                 for level in range(1, self.num_levels + 1):
                     s = self._slots[(row, col, level)]
