@@ -1,10 +1,21 @@
 """
 FIFO ground-stacking storage model.
 
-Storage fills front-to-back (row 1 = front/newest, row N = back/oldest).
-Outbound retrieval is back-to-front (row N first = oldest first).
+Storage fills front-to-back (row 1 = front, row N = back).  In steady-state
+operation the front rows hold the most-recently-arrived pallets (newest) while
+the back rows hold pallets that arrived earliest (oldest), because outbound
+retrieval always removes from the back first.
 
-Shuffling is required when front pallets block access to an older back pallet
+In terms of fill-order numbers:
+  - The pallet with the LOWEST fill_order was placed first (= OLDEST).
+  - The pallet with the HIGHEST fill_order was placed last (= NEWEST).
+  - Row 1 is the FIRST row filled (fill_order=1) and therefore becomes the
+    oldest pallet when the system starts from empty.  In steady-state (partial
+    fill with ongoing inbound/outbound) back rows tend to hold older pallets
+    because front rows are refilled sooner after retrieval.
+
+Outbound retrieval is always by minimum fill_order (FIFO – oldest first).
+Shuffling is required when front pallets block access to the target back pallet
 within the same column lane.
 """
 from __future__ import annotations

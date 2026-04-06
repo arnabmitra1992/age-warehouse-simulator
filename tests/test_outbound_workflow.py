@@ -506,10 +506,10 @@ class TestFIFOStorageModel:
 
     def test_oldest_accessible_slot_no_blockers(self):
         model = FIFOStorageModel(num_rows=5, num_columns=1, num_levels=1)
-        model.inbound_put()  # row 1, fill_order=1
+        model.inbound_put()  # row 1, fill_order=1 (oldest – placed first)
         model.inbound_put()  # row 2, fill_order=2
         slot = model.oldest_accessible_slot()
-        # Row 1 has no blockers, it's the oldest accessible
+        # Row 1 has fill_order=1 (oldest) and no blockers, so it's the oldest accessible
         assert slot is not None
         assert slot.row == 1
 
