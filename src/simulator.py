@@ -234,17 +234,44 @@ class WarehouseSimulator:
             self.xqe, self.distances, self.stacking
         )
 
-        # FIFO storage model for shuffling statistics
+        # FIFO storage model - DYNAMIC simulation of actual operations
         results.fifo_model = FIFOStorageModel(
             num_rows=self.stacking.num_rows,
             num_columns=self.stacking.num_columns,
             num_levels=self.stacking.num_levels,
         )
-        # Simulate half-full storage to estimate average shuffles
-        half_full = self.stacking.total_positions // 2
-        for _ in range(half_full):
-            results.fifo_model.inbound_put()
-        results.avg_shuffles_per_outbound = results.fifo_model.average_shuffles_per_outbound()
+        
+        # Dynamic simulation: simulate hourly inbound/outbound operations
+        operating_hours = self.throughput.operating_hours
+        inbound_per_hour = int(self.throughput.effective_inbound_pallets / operating_hours)
+        outbound_per_hour = int(self.throughput.effective_outbound_pallets / operating_hours)
+        
+        total_shuffles = 0
+        total_retrievals = 0
+        
+        for hour in range(1, operating_hours + 1):
+            # INBOUND: Add pallets to storage (fill back-to-front)
+            for _ in range(inbound_per_hour):
+                results.fifo_model.inbound_put()
+            
+            # OUTBOUND: Retrieve pallets and count actual shuffles
+            for _ in range(outbound_per_hour):
+                oldest = results.fifo_model.oldest_accessible_slot()
+                if oldest:
+                    # Count blocking pallets (each = 1 shuffle move)
+                    blockers = results.fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
+                    total_shuffles += len(blockers)
+                    
+                    # Perform shuffles (move blockers forward)
+                    for blocker in blockers:
+                        results.fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
+                    
+                    # Now retrieve the oldest pallet
+                    results.fifo_model.outbound_get()
+                    total_retrievals += 1
+        
+        # Calculate average shuffles per retrieval
+        results.avg_shuffles_per_outbound = total_shuffles / max(1, total_retrievals)
 
         # Fleet sizing for inbound / outbound
         results.inbound_fleet = calculate_fleet_size(
