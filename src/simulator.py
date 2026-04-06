@@ -168,6 +168,7 @@ class WarehouseSimulator:
         self.traffic_cfg = traffic_control_config_from_dict(
             self.config.get("Traffic_Control", {})
         )
+    
     def _simulate_dynamic_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
         """
         Simulate dynamic inbound/outbound with variable ratios throughout the day.
@@ -220,6 +221,7 @@ class WarehouseSimulator:
                     total_retrievals += 1
         
         return total_shuffles / max(1, total_retrievals)
+
     def run(self, traffic_control_enabled: bool = False) -> SimulationResults:
         """Execute the full simulation and return results.
 
@@ -285,44 +287,18 @@ class WarehouseSimulator:
             self.xqe, self.distances, self.stacking
         )
 
-        # FIFO storage model - DYNAMIC simulation of actual operations
+        # FIFO storage model - DYNAMIC simulation with variable inbound/outbound ratio
         results.fifo_model = FIFOStorageModel(
             num_rows=self.stacking.num_rows,
             num_columns=self.stacking.num_columns,
             num_levels=self.stacking.num_levels,
         )
         
-        # Dynamic simulation: simulate hourly inbound/outbound operations
-        operating_hours = self.throughput.operating_hours
-        inbound_per_hour = int(self.throughput.effective_inbound_pallets / operating_hours)
-        outbound_per_hour = int(self.throughput.effective_outbound_pallets / operating_hours)
-        
-        total_shuffles = 0
-        total_retrievals = 0
-        
-        for hour in range(1, operating_hours + 1):
-            # INBOUND: Add pallets to storage (fill back-to-front)
-            for _ in range(inbound_per_hour):
-                results.fifo_model.inbound_put()
-            
-            # OUTBOUND: Retrieve pallets and count actual shuffles
-            for _ in range(outbound_per_hour):
-                oldest = results.fifo_model.oldest_accessible_slot()
-                if oldest:
-                    # Count blocking pallets (each = 1 shuffle move)
-                    blockers = results.fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
-                    total_shuffles += len(blockers)
-                    
-                    # Perform shuffles (move blockers forward)
-                    for blocker in blockers:
-                        results.fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
-                    
-                    # Now retrieve the oldest pallet
-                    results.fifo_model.outbound_get()
-                    total_retrievals += 1
-        
-        # Calculate average shuffles per retrieval
-        results.avg_shuffles_per_outbound = total_shuffles / max(1, total_retrievals)
+        # Dynamic simulation with variable hourly ratios (Option C)
+        results.avg_shuffles_per_outbound = self._simulate_dynamic_shuffles(
+            results.fifo_model,
+            self.throughput.operating_hours
+        )
 
         # Fleet sizing for inbound / outbound
         results.inbound_fleet = calculate_fleet_size(
@@ -366,7 +342,6 @@ class WarehouseSimulator:
         )
 
         return results
-
     def full_report(self, results: Optional[SimulationResults] = None) -> str:
         """Generate a complete text report."""
         if results is None:
