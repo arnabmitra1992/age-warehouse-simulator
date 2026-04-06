@@ -75,7 +75,7 @@
     "XPL_201_Percentage": 0,
     "XQE_Rack_Percentage": 0,
     "XQE_Stacking_Percentage": 100,
-    "Utilization_Target": 0.8,
+    "Utilization_Target": 0.9,
     "Buffer_Capacity_Pallets": 50
   }
 }
