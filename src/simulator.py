@@ -252,14 +252,14 @@ class WarehouseSimulator:
             
             # Variable inbound/outbound ratio
             if hour_in_day <= 3:
-                inbound_this_hour = int(inbound_per_hour * 1.8)  # 80%
-                outbound_this_hour = int(outbound_per_hour * 0.2)  # 20%
+                inbound_this_hour = int(inbound_per_hour * 2.25)  # 90% (was 1.8)
+                outbound_this_hour = int(outbound_per_hour * 0.25)  # 10% (was 0.2)
             elif hour_in_day <= 7:
-                inbound_this_hour = inbound_per_hour
+                inbound_this_hour = inbound_per_hour  # Balanced 50/50
                 outbound_this_hour = outbound_per_hour
-            else:
-                inbound_this_hour = int(inbound_per_hour * 0.2)  # 20%
-                outbound_this_hour = int(outbound_per_hour * 1.8)  # 80%
+            else:  # Hours 8-10
+                inbound_this_hour = int(inbound_per_hour * 0.25)  # 10% (was 0.2)
+                outbound_this_hour = int(outbound_per_hour * 2.25)  # 90% (was 1.8)
             
             # INBOUND
             for _ in range(inbound_this_hour):
