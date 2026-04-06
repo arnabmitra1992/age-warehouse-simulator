@@ -4,10 +4,14 @@ Ground stacking calculations: layout, dimensions, and storage capacity.
 The stacking area holds euro boxes/pallets in rows × columns × levels.
 Clearance of 200 mm is applied on all sides of each box position.
 The fork entry side determines which dimension becomes the travel depth.
+
+Explicit ``rows``, ``columns``, and ``levels`` values (when provided) override
+the values derived from the physical area dimensions, allowing the config to
+specify an exact layout (e.g. 10 rows × 12 columns × 3 levels).
 """
 import math
-from dataclasses import dataclass
-from typing import Tuple, List
+from dataclasses import dataclass, field
+from typing import Optional, Tuple, List
 
 CLEARANCE_MM = 200          # fixed clearance per side
 MAX_LIFT_HEIGHT_MM = 4500   # XQE_122 max lift height
@@ -32,6 +36,10 @@ class GroundStackingConfig:
     area: StackingAreaDimensions = None
     fork_entry_side: str = "Length"   # "Length" or "Width"
     clearance_mm: float = CLEARANCE_MM
+    # Optional explicit overrides (when set, derived layout counts are ignored)
+    explicit_rows: Optional[int] = None
+    explicit_columns: Optional[int] = None
+    explicit_levels: Optional[int] = None
 
     def __post_init__(self):
         if self.box is None:
@@ -59,20 +67,26 @@ class GroundStackingConfig:
             return self.box.width_mm + 2 * self.clearance_mm
 
     # ------------------------------------------------------------------
-    # Layout counts
+    # Layout counts (explicit overrides take priority)
     # ------------------------------------------------------------------
     @property
     def num_columns(self) -> int:
+        if self.explicit_columns is not None:
+            return max(0, self.explicit_columns)
         usable_width = self.area.width_mm - 2 * self.clearance_mm
         return max(0, math.floor(usable_width / self.effective_box_width_mm))
 
     @property
     def num_rows(self) -> int:
+        if self.explicit_rows is not None:
+            return max(0, self.explicit_rows)
         usable_length = self.area.length_mm - 2 * self.clearance_mm
         return max(0, math.floor(usable_length / self.effective_box_depth_mm))
 
     @property
     def num_levels(self) -> int:
+        if self.explicit_levels is not None:
+            return max(1, self.explicit_levels)
         return max(1, math.floor(MAX_LIFT_HEIGHT_MM / self.box.height_mm))
 
     @property
@@ -132,4 +146,7 @@ def ground_stacking_config_from_dict(d: dict) -> GroundStackingConfig:
         area=area,
         fork_entry_side=d.get("Fork_Entry_Side", "Length"),
         clearance_mm=d.get("Clearance_mm", CLEARANCE_MM),
+        explicit_rows=d.get("Rows", None),
+        explicit_columns=d.get("Columns", None),
+        explicit_levels=d.get("Levels", None),
     )

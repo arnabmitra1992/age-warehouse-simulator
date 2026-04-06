@@ -139,6 +139,91 @@ def xqe122_stacking_workflow_diagram() -> str:
 """
 
 
+def xqe122_inbound_workflow_diagram() -> str:
+    return f"""
+{SEPARATOR}
+{_center('XQE_122 INBOUND WORKFLOW (Production → Ground Storage)')}
+{SEPARATOR}
+
+  Rest Area
+    │ FORWARD, EMPTY  (Rest_to_Production)
+    ▼
+  Production Conveyor
+    │ PICKUP (30s)
+    │ TURN 90°
+    │ FORWARD, LOADED  (Production_to_Storage_Entry)
+    ▼
+  Storage Entry
+    │ FORWARD to Column C  (col_dist)
+    │ REVERSE to Row R  (row_dist – loaded, into storage)
+    │ LIFT to Level L
+    │ DROPOFF (30s)
+    │ LOWER forks
+    ▼
+  Return to Rest  (FORWARD, EMPTY – full reverse path)
+
+{SEPARATOR}
+"""
+
+
+def xqe122_outbound_workflow_diagram() -> str:
+    return f"""
+{SEPARATOR}
+{_center('XQE_122 OUTBOUND WORKFLOW (Ground Storage → Outbound Dock)')}
+{SEPARATOR}
+
+  Rest Area
+    │ FORWARD, EMPTY  (rest_to_storage_entry)
+    ▼
+  Storage Entry
+    │ FORWARD to Column C  (col_dist)
+    │ REVERSE to Row R  (row_dist – FIFO back rows, empty)
+    │ LIFT to Level L
+    │ PICKUP (30s)
+    │ LOWER forks
+    ▼
+  Storage Exit  (FORWARD, LOADED)
+    │ storage_exit_to_outbound_entry
+    ▼
+  Outbound Dock Entry
+    │ FORWARD to Column C  (col_dist – similar to inbound)
+    │ REVERSE to Row R  (row_dist – loaded)
+    │ LIFT to Level L
+    │ DROPOFF (30s)
+    │ LOWER forks
+    ▼
+  Return to Rest  (FORWARD, EMPTY – outbound_exit_to_rest)
+
+{SEPARATOR}
+"""
+
+
+def xqe122_shuffling_workflow_diagram() -> str:
+    return f"""
+{SEPARATOR}
+{_center('XQE_122 SHUFFLING / REHANDLING WORKFLOW')}
+{SEPARATOR}
+
+  [Outbound AGV detects blocking pallets in target column/row]
+    │
+    ▼
+  Storage Entry
+    │ FORWARD to Column C  (col_dist)
+    │ REVERSE to Blocking Row  (blocking_row_dist – empty)
+    │ PICKUP (30s)
+    ▼
+  Move FORWARD one slot to empty position  (LOADED)
+    │ DROPOFF (30s)
+    ▼
+  Return to Storage Entry  (FORWARD, EMPTY)
+    │
+    ▼
+  [Resume original outbound retrieval task]
+
+{SEPARATOR}
+"""
+
+
 # ---------------------------------------------------------------------------
 # Results reporting
 # ---------------------------------------------------------------------------
@@ -203,6 +288,58 @@ def fleet_report(results: list) -> str:
         f"  TOTAL FLEET SIZE: {total_fleet} vehicles",
         SEPARATOR,
     ]
+    return "\n".join(lines)
+
+
+def outbound_performance_report(
+    throughput_config,
+    inbound_cycle: CycleResult,
+    outbound_cycle: CycleResult,
+    shuffling_cycle: Optional[CycleResult],
+    inbound_fleet: "FleetSizeResult",
+    outbound_fleet: "FleetSizeResult",
+    shuffling_fleet: Optional["FleetSizeResult"],
+    traffic_report: str = "",
+    avg_shuffles_per_cycle: float = 0.0,
+) -> str:
+    lines = [
+        SEPARATOR,
+        _center("INBOUND / OUTBOUND PERFORMANCE METRICS"),
+        SUB_SEP,
+        f"  Daily inbound pallets  : {throughput_config.effective_inbound_pallets}",
+        f"  Daily outbound pallets : {throughput_config.effective_outbound_pallets}",
+        f"  Operating hours/day    : {throughput_config.operating_hours}h",
+        f"  Utilisation target     : {throughput_config.utilization_target * 100:.0f}%",
+        SUB_SEP,
+        f"  Inbound avg cycle time : {inbound_cycle.total_time_s:.1f}s "
+        f"({inbound_cycle.total_time_min:.2f} min)",
+        f"  Inbound throughput/h   : {3600 / inbound_cycle.total_time_s:.2f} pallets/h (per AGV)",
+        f"  Inbound fleet required : {inbound_fleet.fleet_size} AGVs",
+        SUB_SEP,
+        f"  Outbound avg cycle     : {outbound_cycle.total_time_s:.1f}s "
+        f"({outbound_cycle.total_time_min:.2f} min)",
+        f"  Outbound throughput/h  : {3600 / outbound_cycle.total_time_s:.2f} pallets/h (per AGV)",
+        f"  Outbound fleet required: {outbound_fleet.fleet_size} AGVs",
+    ]
+    if shuffling_cycle and shuffling_fleet:
+        lines += [
+            SUB_SEP,
+            f"  Shuffling avg cycle    : {shuffling_cycle.total_time_s:.1f}s",
+            f"  Avg shuffles/outbound  : {avg_shuffles_per_cycle:.2f}",
+            f"  Shuffling fleet overhead: {shuffling_fleet.fleet_size} AGVs",
+        ]
+    total = (
+        inbound_fleet.fleet_size
+        + outbound_fleet.fleet_size
+        + (shuffling_fleet.fleet_size if shuffling_fleet else 0)
+    )
+    lines += [
+        SUB_SEP,
+        f"  TOTAL FLEET (inbound + outbound + shuffling): {total} AGVs",
+        SEPARATOR,
+    ]
+    if traffic_report:
+        lines += ["", traffic_report]
     return "\n".join(lines)
 
 
