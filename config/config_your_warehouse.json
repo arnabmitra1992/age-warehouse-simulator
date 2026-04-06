@@ -1,0 +1,1 @@
+{"warehouseLayout": {"inbound": {"conveyor": "production"}, "pickup": {"type": "XQE", "height": 1.5}, "storage": {"positions": 120, "levels": 3, "totalPositions": 360}, "palletDimensions": {"length": 1300, "width": 950, "height": 1840}, "outbound": {"storageType": "FIFO"}}}
