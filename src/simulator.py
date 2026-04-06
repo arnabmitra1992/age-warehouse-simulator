@@ -238,8 +238,6 @@ class WarehouseSimulator:
         - Hours 4-7, 14-17: Balanced (50/50)
         - Hours 8-10, 18-20: Heavy outbound (30% inbound, 70% outboun
         """
-        Simulate 2-day operation with 10-hour shifts each.
-        """
         # PRE-FILL storage to 70% with old pallets (fill_order 1-252)
         fill_counter = 0
         for row in range(1, fifo_model.num_rows + 1):
