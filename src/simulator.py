@@ -275,6 +275,12 @@ class WarehouseSimulator:
                 if oldest:
                     # Count blocking pallets (newer ones in front of same column/level)
                     blockers = fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
+                    
+                    # DEBUG: Print blocking info
+                    if hour == 8 and _ == 0:  # Print first retrieval of hour 8
+                        print(f"  DEBUG Hour {hour}: Oldest at Row {oldest.row}, Col {oldest.col}, Level {oldest.level} | "
+                              f"Fill_order {oldest.fill_order} | Blockers: {len(blockers)}")
+                    
                     total_shuffles += len(blockers)
                     day_shuffles[day] += len(blockers)
                     
