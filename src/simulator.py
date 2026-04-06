@@ -238,6 +238,20 @@ class WarehouseSimulator:
         - Hours 4-7, 14-17: Balanced (50/50)
         - Hours 8-10, 18-20: Heavy outbound (30% inbound, 70% outbound)
         """
+        # PRE-FILL storage to 70% with old pallets (fill_order 1-252)
+        # This simulates a warehouse that starts with inventory
+        fill_counter = 0
+        for row in range(1, fifo_model.num_rows + 1):
+            for col in range(1, fifo_model.num_columns + 1):
+                for level in range(1, fifo_model.num_levels + 1):
+                    if fill_counter < 252:  # 70% of 360
+                        fill_counter += 1
+                        fifo_model._slots[(row, col, level)].fill_order = fill_counter
+                    else:
+                        break
+            else:
+                continue
+            break
         inbound_per_hour = int(self.throughput.effective_inbound_pallets / (operating_hours // 2))
         outbound_per_hour = int(self.throughput.effective_outbound_pallets / (operating_hours // 2))
         
