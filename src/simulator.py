@@ -225,7 +225,7 @@ class WarehouseSimulator:
         
         return total_shuffles / max(1, total_retrievals)
 
-    def _simulate_two_zone_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
+        def _simulate_two_zone_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
         """
         Simulate two-zone storage with pre-filled outbound zone.
         
@@ -240,23 +240,7 @@ class WarehouseSimulator:
         
         Returns average shuffles per outbound retrieval.
         """
-        # Pre-fill outbound zone (Rows 10-6) with 60 old pallets
-        outbound_zone_rows = [10, 9, 8, 7, 6]
-        for row in outbound_zone_rows:
-            for col in range(1, fifo_model.num_columns + 1):
-                for level in range(1, fifo_model.num_levels + 1):
-                    if fifo_model.inbound_put():  # This fills from row 1 normally
-                        pass
-        
-        # Reset and manually fill outbound zone (rows 10-6)
-        fifo_model._counter = 0  # Reset counter
-        fifo_model._slots = {}
-        for r in range(1, fifo_model.num_rows + 1):
-            for c in range(1, fifo_model.num_columns + 1):
-                for lv in range(1, fifo_model.num_levels + 1):
-                    fifo_model._slots[(r, c, lv)] = fifo_model.slot(r, c, lv)
-        
-        # Fill outbound zone (rows 10-6) with old pallets (fill_order 1-60)
+        # Pre-fill outbound zone (Rows 10-6) with old pallets (fill_order 1-60)
         for row in [10, 9, 8, 7, 6]:
             for col in range(1, fifo_model.num_columns + 1):
                 for level in range(1, fifo_model.num_levels + 1):
@@ -268,80 +252,79 @@ class WarehouseSimulator:
         
         total_shuffles = 0
         total_retrievals = 0
-        shuffles_triggered = 0
         
         for hour in range(1, operating_hours + 1):
             # Variable inbound/outbound ratio based on time of day
             if hour <= 3:
-                inbound_this_hour = int(inbound_per_hour * 1.4)
-                outbound_this_hour = int(outbound_per_hour * 0.6)
+                inbound_this_hour = int(inbound_per_hour * 1.4)  # 70% extra
+                outbound_this_hour = int(outbound_per_hour * 0.6)  # 30% reduced
             elif hour <= 7:
-                inbound_this_hour = inbound_per_hour
+                inbound_this_hour = inbound_per_hour  # Balanced
                 outbound_this_hour = outbound_per_hour
             else:
-                inbound_this_hour = int(inbound_per_hour * 0.6)
-                outbound_this_hour = int(outbound_per_hour * 1.4)
+                inbound_this_hour = int(inbound_per_hour * 0.6)  # 30% reduced
+                outbound_this_hour = int(outbound_per_hour * 1.4)  # 70% extra
             
-            # OUTBOUND: Retrieve from rows 10-6
-            for _ in range(outbound_this_hour):
-                oldest = fifo_model.oldest_accessible_slot()
-                if oldest:
-                    # Check if we need to shuffle (target is in rows 10-6)
-                    if oldest.row >= 6:  # Outbound zone
-                        blockers = fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
-                        total_shuffles += len(blockers)
-                        
-                        for blocker in blockers:
-                            fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
-                        
-                        fifo_model.outbound_get()
-                        total_retrievals += 1
-                    else:
-                        # Outbound zone empty, need to shuffle from inbound to outbound
-                        # Find oldest in rows 5-1 and move to rows 10-6
-                        inbound_zone_oldest = None
-                        for row in [5, 4, 3, 2, 1]:
-                            for col in range(1, fifo_model.num_columns + 1):
-                                for level in range(1, fifo_model.num_levels + 1):
-                                    slot = fifo_model._slots[(row, col, level)]
-                                    if slot.is_occupied:
-                                        if inbound_zone_oldest is None or slot.fill_order < inbound_zone_oldest.fill_order:
-                                            inbound_zone_oldest = slot
-                        
-                        if inbound_zone_oldest:
-                            # Find empty slot in outbound zone
-                            for row in [10, 9, 8, 7, 6]:
-                                for col in range(1, fifo_model.num_columns + 1):
-                                    for level in range(1, fifo_model.num_levels + 1):
-                                        if not fifo_model._slots[(row, col, level)].is_occupied:
-                                            fifo_model._slots[(row, col, level)].fill_order = inbound_zone_oldest.fill_order
-                                            inbound_zone_oldest.fill_order = None
-                                            total_shuffles += 1
-                                            shuffles_triggered += 1
-                                            break
-                                    else:
-                                        continue
-                                    break
-                                else:
-                                    continue
-                                break
-            
-            # INBOUND: Fill rows 5-1
+            # INBOUND FIRST: Fill rows 5-1 (inbound zone)
             for _ in range(inbound_this_hour):
-                # Find next empty slot in inbound zone (rows 5-1)
-                for row in [5, 4, 3, 2, 1]:
+                # Find next empty slot in inbound zone (rows 5-1, front-to-back)
+                placed = False
+                for row in range(1, 6):  # Rows 1-5
                     for col in range(1, fifo_model.num_columns + 1):
                         for level in range(1, fifo_model.num_levels + 1):
                             if not fifo_model._slots[(row, col, level)].is_occupied:
                                 fifo_model._counter += 1
                                 fifo_model._slots[(row, col, level)].fill_order = fifo_model._counter
+                                placed = True
                                 break
-                        else:
-                            continue
+                        if placed:
+                            break
+                    if placed:
                         break
-                    else:
-                        continue
-                    break
+            
+            # OUTBOUND SECOND: Retrieve from rows 10-6 (outbound zone)
+            for _ in range(outbound_this_hour):
+                oldest = fifo_model.oldest_accessible_slot()
+                if oldest:
+                    # Count blocking pallets (each = 1 shuffle move)
+                    blockers = fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
+                    total_shuffles += len(blockers)
+                    
+                    # Perform shuffles (move blockers forward)
+                    for blocker in blockers:
+                        fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
+                    
+                    # Now retrieve the oldest pallet
+                    fifo_model.outbound_get()
+                    total_retrievals += 1
+                else:
+                    # Outbound zone empty, shuffle from inbound zone (rows 5-1) to outbound zone (rows 10-6)
+                    # Find oldest in inbound zone
+                    inbound_oldest = None
+                    for row in range(1, 6):  # Rows 1-5
+                        for col in range(1, fifo_model.num_columns + 1):
+                            for level in range(1, fifo_model.num_levels + 1):
+                                slot = fifo_model._slots[(row, col, level)]
+                                if slot.is_occupied:
+                                    if inbound_oldest is None or slot.fill_order < inbound_oldest.fill_order:
+                                        inbound_oldest = slot
+                    
+                    if inbound_oldest:
+                        # Find empty slot in outbound zone and move pallet there
+                        moved = False
+                        for row in range(6, 11):  # Rows 6-10
+                            for col in range(1, fifo_model.num_columns + 1):
+                                for level in range(1, fifo_model.num_levels + 1):
+                                    if not fifo_model._slots[(row, col, level)].is_occupied:
+                                        fifo_model._slots[(row, col, level)].fill_order = inbound_oldest.fill_order
+                                        inbound_oldest.fill_order = None
+                                        total_shuffles += 1
+                                        moved = True
+                                        break
+                                if moved:
+                                    break
+                            if moved:
+                                break
         
         return total_shuffles / max(1, total_retrievals)
     
