@@ -228,35 +228,27 @@ class WarehouseSimulator:
     def _simulate_two_zone_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
         """
         Simulate 2-day operation with 10-hour shifts each.
-        
-        Day 1: Storage fills up (inbound > outbound in morning)
-        Day 2: Storage is fuller, retrieval from back rows is blocked by front rows
-                → SHUFFLES SPIKE on Day 2 as AGVs move blocking pallets
-        
-        Inbound/Outbound ratio per hour:
-        - Hours 1-3, 11-13: Heavy inbound (70% inbound, 30% outbound)
-        - Hours 4-7, 14-17: Balanced (50/50)
-        - Hours 8-10, 18-20: Heavy outbound (30% inbound, 70% outboun
+        Pre-fill storage so new inbound blocks old outbound retrieval.
         """
-        # PRE-FILL storage to 70% with old pallets (fill_order 1-252)
+        # PRE-FILL: Fill BACK rows (9-10) with OLD pallets (fill_order 1-72)
+        # This creates a situation where old pallets are deep in storage
         fill_counter = 0
-        for row in range(1, fifo_model.num_rows + 1):
+        for row in [10, 9]:  # Back rows
             for col in range(1, fifo_model.num_columns + 1):
                 for level in range(1, fifo_model.num_levels + 1):
-                    if fill_counter < 252:  # 70% of 360
-                        fill_counter += 1
-                        fifo_model._slots[(row, col, level)].fill_order = fill_counter
+                    fill_counter += 1
+                    fifo_model._slots[(row, col, level)].fill_order = fill_counter
         
-        # SET COUNTER to continue from 252 so new inbound starts at 253
-        fifo_model._counter = 252
+        # Now set counter so new inbound starts at 73
+        fifo_model._counter = fill_counter
         
         inbound_per_hour = int(self.throughput.effective_inbound_pallets / (operating_hours // 2))
         outbound_per_hour = int(self.throughput.effective_outbound_pallets / (operating_hours // 2))
         
         total_shuffles = 0
         total_retrievals = 0
-        day_shuffles = [0, 0]  # Track shuffles per day
-        day_retrievals = [0, 0]  # Track retrievals per day
+        day_shuffles = [0, 0]
+        day_retrievals = [0, 0]
         
         for hour in range(1, operating_hours + 1):
             day = (hour - 1) // 10
@@ -264,39 +256,42 @@ class WarehouseSimulator:
             
             # Variable inbound/outbound ratio
             if hour_in_day <= 3:
-                inbound_this_hour = int(inbound_per_hour * 2.25)  # 90% (was 1.8)
-                outbound_this_hour = int(outbound_per_hour * 0.25)  # 10% (was 0.2)
+                inbound_this_hour = int(inbound_per_hour * 2.25)  # 90%
+                outbound_this_hour = int(outbound_per_hour * 0.25)  # 10%
             elif hour_in_day <= 7:
-                inbound_this_hour = inbound_per_hour  # Balanced 50/50
+                inbound_this_hour = inbound_per_hour
                 outbound_this_hour = outbound_per_hour
-            else:  # Hours 8-10
-                inbound_this_hour = int(inbound_per_hour * 0.25)  # 10% (was 0.2)
-                outbound_this_hour = int(outbound_per_hour * 2.25)  # 90% (was 1.8)
+            else:
+                inbound_this_hour = int(inbound_per_hour * 0.25)  # 10%
+                outbound_this_hour = int(outbound_per_hour * 2.25)  # 90%
             
-            # INBOUND
+            # INBOUND: New pallets fill front rows (rows 1-8)
             for _ in range(inbound_this_hour):
                 fifo_model.inbound_put()
             
-            # OUTBOUND
+            # OUTBOUND: Try to retrieve oldest (which are in back rows 9-10, blocked by front)
             for _ in range(outbound_this_hour):
                 oldest = fifo_model.oldest_accessible_slot()
                 if oldest:
+                    # Count blocking pallets (newer ones in front of same column/level)
                     blockers = fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
                     total_shuffles += len(blockers)
                     day_shuffles[day] += len(blockers)
                     
+                    # Shuffle them out of the way
                     for blocker in blockers:
                         fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
                     
+                    # Now retrieve the oldest
                     fifo_model.outbound_get()
                     total_retrievals += 1
                     day_retrievals[day] += 1
             
-            # Print every hour (not just at end of day)
-            if hour % 1 == 0:  # Every hour
+            # Print hourly status
+            if hour % 1 == 0:
                 print(f"Hour {hour:2d}: Inbound={inbound_this_hour:2d}, Outbound={outbound_this_hour:2d} | "
                       f"Storage={fifo_model.occupied_count:3d}/360 ({fifo_model.occupancy_fraction*100:5.1f}%) | "
-                      f"Shuffles_this_hour=?, Retrievals={total_retrievals}")
+                      f"Shuffles={total_shuffles}, Retrievals={total_retrievals}")
         
         avg_shuffles = total_shuffles / max(1, total_retrievals) if total_retrievals > 0 else 0
         
