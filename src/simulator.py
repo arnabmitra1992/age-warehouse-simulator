@@ -223,7 +223,7 @@ class WarehouseSimulator:
             for _ in range(inbound_this_hour):
                 fifo_model.inbound_put()
         
-    return total_shuffles / max(1, total_retrievals)
+          return total_shuffles / max(1, total_retrievals)
 
     def run(self, traffic_control_enabled: bool = False) -> SimulationResults:
         """Execute the full simulation and return results.
