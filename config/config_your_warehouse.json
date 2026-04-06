@@ -71,10 +71,11 @@
     "Total_Daily_Pallets": 360,
     "Total_Daily_Inbound_Pallets": 360,
     "Total_Daily_Outbound_Pallets": 360,
-    "Operating_Hours": 20,  
+    "Operating_Hours": 20,
     "XPL_201_Percentage": 0,
     "XQE_Rack_Percentage": 0,
     "XQE_Stacking_Percentage": 100,
     "Utilization_Target": 0.9,
     "Buffer_Capacity_Pallets": 50
   }
+}
