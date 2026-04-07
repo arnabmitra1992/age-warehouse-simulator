@@ -45,8 +45,8 @@
   },
 
   "Ground_Stacking_Configuration": {
-    "Rows": 10,
-    "Columns": 12,
+    "Rows": 12,
+    "Columns": 11,
     "Levels": 3,
     "Box_Dimensions": {
       "Length_mm": 1300,
@@ -57,7 +57,7 @@
       "Length_mm": 21000,
       "Width_mm": 11500
     },
-    "Fork_Entry_Side": "Length",
+    "Fork_Entry_Side": "Width",
     "Clearance_mm": 200
   },
 
