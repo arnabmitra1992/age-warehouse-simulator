@@ -89,6 +89,84 @@ All simulator parameters are controlled via a JSON configuration file.
 
 ---
 
+### Shuffle_Configuration — Alternating Buffer Column Strategy
+
+Activate this strategy by setting `strategy` to `"alternating_buffer_column_24h"`.
+
+```json
+"Shuffle_Configuration": {
+  "strategy": "alternating_buffer_column_24h",
+  "min_age_hours_for_outbound": 24,
+  "outbound_column_mode": "hard",
+  "initial_fill_columns": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "day_patterns": [
+    {
+      "inbound_column_order":  [11, 10, 9, 8, 7, 6, 5, 4, 3, 2],
+      "outbound_column_order": [10,  9, 8, 7, 6, 5, 4, 3, 2, 1]
+    },
+    {
+      "inbound_column_order":  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "outbound_column_order": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    }
+  ]
+}
+```
+
+#### Key fields
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `strategy` | string | — | Must be `"alternating_buffer_column_24h"` to activate this strategy. |
+| `min_age_hours_for_outbound` | number | `24` | A pallet must be at least this many hours old before it is eligible for outbound retrieval. |
+| `outbound_column_mode` | string | `"hard"` | Controls fallback behaviour when the preferred outbound columns are exhausted. See below. |
+| `initial_fill_columns` | array of int | day-1 outbound order | Columns to fill with pre-aged pallets at simulation start (time 0). |
+| `day_patterns` | array of objects | required | Cyclic list of day patterns (see below). |
+
+Each entry in `day_patterns` has:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `inbound_column_order` | array of int | Ordered list of columns for inbound placement. The first vacant slot in the first listed column is used. |
+| `outbound_column_order` | array of int | Ordered list of columns for outbound retrieval (the "preferred" columns). |
+
+Day patterns cycle: day 1 uses index 0, day 2 uses index 1, day 3 uses index 0 again, etc.
+
+#### `outbound_column_mode`
+
+**`"hard"` (default)**
+
+Outbound retrieval *only* considers columns listed in the day's `outbound_column_order`.
+If no eligible pallet (age ≥ `min_age_hours_for_outbound`) exists in those columns,
+the outbound move is skipped (counted as a missed retrieval).
+This mode models a strict physical routing constraint and is the simplest to reason about.
+
+**`"preference"`**
+
+Outbound first tries the columns in the day's `outbound_column_order`.
+If demand cannot be met from those columns, it falls back to the *remaining* columns
+(those not listed in `outbound_column_order`), scanned in **the same direction** as the
+preferred list:
+
+- If `outbound_column_order` is descending (e.g. `[10, 9, … 1]`), the fallback columns
+  are also scanned descending.
+- If `outbound_column_order` is ascending (e.g. `[2, 3, … 11]`), the fallback columns
+  are scanned ascending.
+
+The 24 h aging gate still applies in fallback mode: only pallets with
+`age >= min_age_hours_for_outbound` are eligible.
+
+#### Example configs
+
+| File | Mode |
+|------|------|
+| `config/config_alternating_buffer_11x12x3_hard.json` | `"hard"` |
+| `config/config_alternating_buffer_11x12x3_preference.json` | `"preference"` |
+
+Both configs use an 11 × 12 × 3 ground-stacking layout with 10 operating hours per day
+and 36 pallets/hour.
+
+---
+
 ## CLI Usage
 
 ```bash
