@@ -77,11 +77,11 @@
     "XQE_Stacking_Percentage": 100,
     "Utilization_Target": 0.8,
     "Buffer_Capacity_Pallets": 10
-  }
-},
+  },
 
-"Shuffle_Configuration": {
-  "strategy": "alternating_buffer_column_24h",
-  "min_age_hours_for_outbound": 24,
-  "outbound_column_mode": "hard"
+  "Shuffle_Configuration": {
+    "strategy": "alternating_buffer_column_24h",
+    "min_age_hours_for_outbound": 24,
+    "outbound_column_mode": "hard"
+  }
 }
