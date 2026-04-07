@@ -1,0 +1,88 @@
+{
+  "AGV_Specifications": {
+    "XQE_122": {
+      "forward_speed_ms": 1.0,
+      "reverse_speed_ms": 0.3,
+      "lift_speed_ms": 0.2,
+      "max_lift_height_mm": 4500,
+      "pickup_time_s": 30,
+      "dropoff_time_s": 30
+    },
+    "XPL_201": {
+      "forward_speed_ms": 1.5,
+      "reverse_speed_ms": 0.5,
+      "pickup_time_s": 30,
+      "dropoff_time_s": 30
+    },
+    "Turn_90_degrees_s": 10
+  },
+
+  "Warehouse_Layout": {
+    "Distances_mm": {
+      "Rest_to_Inbound": 5000,
+      "Rest_to_Head_Aisle": 3000,
+      "Head_Aisle_to_Handover": 8000,
+      "Head_Aisle_to_Rack_Aisle": 6000,
+      "Rack_Aisle_Length": 20000,
+      "Head_Aisle_to_Stacking": 10000,
+      "Inbound_Depth_mm": 2000,
+      "Rest_to_Production": 5000,
+      "Production_to_Storage_Entry": 3000,
+      "Head_Aisle_to_Outbound": 10000
+    },
+    "Aisle_Widths_mm": {
+      "Inbound_Access_Width_mm": 3900,
+      "Head_Aisle_Width_mm": 3500,
+      "Outbound_Access_Width_mm": 3900
+    }
+  },
+
+  "Rack_Configuration": {
+    "Rack_Length_mm": 20000,
+    "Pallet_Width_mm": 800,
+    "Shelf_Height_Spacing_mm": 1300,
+    "Position_Spacing_mm": 950
+  },
+
+  "Ground_Stacking_Configuration": {
+    "Rows": 12,
+    "Columns": 11,
+    "Levels": 3,
+    "Box_Dimensions": {
+      "Length_mm": 1300,
+      "Width_mm": 950,
+      "Height_mm": 1840
+    },
+    "Storage_Area_Dimensions": {
+      "Length_mm": 21000,
+      "Width_mm": 11500
+    },
+    "Fork_Entry_Side": "Length",
+    "Clearance_mm": 200
+  },
+
+  "Traffic_Control": {
+    "Enabled": false,
+    "XQE_Min_Aisle_Width_mm": 2840,
+    "XQE_Bidirectional_Width_mm": 3500
+  },
+
+  "Throughput_Configuration": {
+    "Total_Daily_Pallets": 360,
+    "Total_Daily_Inbound_Pallets": 360,
+    "Total_Daily_Outbound_Pallets": 360,
+    "Operating_Hours": 10,
+    "XPL_201_Percentage": 0,
+    "XQE_Rack_Percentage": 0,
+    "XQE_Stacking_Percentage": 100,
+    "Utilization_Target": 0.9,
+    "Buffer_Capacity_Pallets": 36
+  },
+
+  "Shuffle_Configuration": {
+    "strategy": "alternating_buffer_column_24h",
+    "min_age_hours_for_outbound": 24,
+    "buffer_columns": 1,
+    "num_days": 2
+  }
+}
