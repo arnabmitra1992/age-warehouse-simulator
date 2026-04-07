@@ -115,18 +115,33 @@ class AlternatingBufferStorage:
         """
         Fill the given columns completely with pallets aged at ``put_time_hour``.
         Fills level-by-level (level 1 first), row-by-row (row 1 first) within
-        each column.  Returns the number of pallets placed.
+        each column.
+
+        A small stagger (``-count``) is applied so that each pallet has a
+        unique timestamp.  Row 1 (front) gets the most recent pre-fill
+        timestamp; higher rows (back) get progressively older timestamps,
+        which reflects FIFO pre-fill: back-row pallets arrived earlier.
+
+        Returns the number of pallets placed.
         """
         count = 0
+        total = sum(
+            1
+            for col in columns
+            for _ in range(self.num_rows * self.num_levels)
+        )
         for col in columns:
             for row in range(1, self.num_rows + 1):
                 for lv in range(1, self.num_levels + 1):
                     if self._slots[(row, col, lv)] is None:
+                        # Earlier rows (row 1) get the newest pre-fill timestamp;
+                        # later rows (row N) get progressively older timestamps.
+                        slot_put_time = put_time_hour - (total - 1 - count)
                         self._slots[(row, col, lv)] = BufferPallet(
                             row=row,
                             col=col,
                             level=lv,
-                            put_time_hour=put_time_hour - count,  # stagger ages
+                            put_time_hour=slot_put_time,
                         )
                         count += 1
         return count
@@ -298,9 +313,9 @@ def run_alternating_buffer_simulation(
     min_age = shuffle_cfg.get("min_age_hours_for_outbound", 24)
     mode = shuffle_cfg.get("outbound_column_mode", "hard")
     operating_hours = config["Throughput_Configuration"].get("Operating_Hours", 10)
-    pallets_per_hour = config["Throughput_Configuration"].get(
-        "Total_Daily_Inbound_Pallets", 360
-    ) // operating_hours
+    daily_inbound = config["Throughput_Configuration"].get("Total_Daily_Inbound_Pallets", 360)
+    # Round to nearest integer; any remainder is silently absorbed each hour.
+    pallets_per_hour = round(daily_inbound / operating_hours)
 
     day_patterns_raw = shuffle_cfg.get("day_patterns", [])
     if not day_patterns_raw:

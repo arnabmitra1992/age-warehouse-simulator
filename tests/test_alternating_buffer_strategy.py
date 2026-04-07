@@ -54,7 +54,7 @@ def small_storage_preference():
 
 @pytest.fixture
 def full_hard_config():
-    """Minimal config dict for run_alternating_buffer_simulation (hard mode)."""
+    """Full 11×12×3 config dict for run_alternating_buffer_simulation (hard mode)."""
     return {
         "Ground_Stacking_Configuration": {"Rows": 12, "Columns": 11, "Levels": 3},
         "Throughput_Configuration": {
@@ -277,7 +277,7 @@ class TestPreferenceModeOutbound:
         """Even in preference mode, unaged pallets in all columns → None."""
         # Place pallets via inbound_put at current_hour=0; check at current_hour=1
         for col in [1, 2, 3, 4]:
-            for _ in range(3):  # fill a few slots per column
+            for _ in range(3):  # 3 pallets per column (< max 6) to leave room for inbound
                 small_storage_preference.inbound_put([col], current_hour=0.0)
         # current_hour = 1 → age = 1h < 24h
         result = small_storage_preference.outbound_get(
