@@ -14,6 +14,11 @@ from .rack_storage import RackConfig, rack_config_from_dict
 from .ground_stacking import GroundStackingConfig, ground_stacking_config_from_dict
 from .fifo_storage import FIFOStorageModel
 from .traffic_control import TrafficControlConfig, TrafficControlModel, traffic_control_config_from_dict
+from .alternating_buffer_strategy import (
+    AlternatingBufferStorage,
+    get_day_pattern,
+    simulate_alternating_buffer,
+)
 from .cycle_calculator import (
     xpl201_handover_cycle,
     xqe122_rack_average_cycle,
@@ -68,6 +73,8 @@ class SimulationResults:
         self.avg_shuffles_per_outbound: float = 0.0
         self.fifo_model: Optional[FIFOStorageModel] = None
         self.traffic_model: Optional[TrafficControlModel] = None
+        # Alternating buffer column strategy results (optional)
+        self.alternating_buffer_results: Optional[Dict[str, Any]] = None
 
     @property
     def total_fleet_size(self) -> int:
@@ -123,6 +130,9 @@ class SimulationResults:
                 "shuffling_fleet": self.shuffling_fleet.fleet_size if self.shuffling_fleet else 0,
                 "total_outbound_fleet": self.total_outbound_fleet_size,
             }
+        # Alternating buffer column strategy metrics (if computed)
+        if self.alternating_buffer_results is not None:
+            base["alternating_buffer_strategy"] = self.alternating_buffer_results
         return base
 
     def to_json(self, indent: int = 2) -> str:
@@ -324,6 +334,93 @@ class WarehouseSimulator:
         return avg_shuffles
     
     
+    def _run_alternating_buffer_strategy(self) -> Dict[str, Any]:
+        """
+        Execute the alternating buffer-column simulation.
+
+        Reads strategy parameters from ``Shuffle_Configuration`` in the
+        loaded config and returns the simulation summary dict produced by
+        :func:`~src.alternating_buffer_strategy.simulate_alternating_buffer`.
+        """
+        shuffle_cfg = self.config.get("Shuffle_Configuration", {})
+        min_age_h = float(shuffle_cfg.get("min_age_hours_for_outbound", 24.0))
+        num_days = int(shuffle_cfg.get("num_days", 2))
+
+        n_rows = self.stacking.num_rows
+        n_cols = self.stacking.num_columns
+        n_levels = self.stacking.num_levels
+        operating_hours = self.throughput.operating_hours
+        inbound_per_hour = int(
+            round(self.throughput.effective_inbound_pallets / operating_hours)
+        )
+        outbound_per_hour = int(
+            round(self.throughput.effective_outbound_pallets / operating_hours)
+        )
+
+        storage = AlternatingBufferStorage(
+            num_rows=n_rows,
+            num_columns=n_cols,
+            num_levels=n_levels,
+            min_age_hours_for_outbound=min_age_h,
+        )
+
+        # Pre-fill Day-1 inventory: columns 1 … (num_columns-1) fully aged.
+        # Column num_columns starts empty (it is the Day-1 buffer column).
+        aged_columns = list(range(1, n_cols))  # [1, 2, …, 10]
+        placed = storage.prefill_aged_inventory(
+            columns=aged_columns,
+            put_time_hour=-min_age_h,
+        )
+        print(
+            f"\n[AlternatingBufferStrategy] Pre-filled {placed} aged pallets "
+            f"in columns {aged_columns[0]}–{aged_columns[-1]}. "
+            f"Buffer column {n_cols} is empty.\n"
+        )
+
+        sim_results = simulate_alternating_buffer(
+            storage=storage,
+            num_days=num_days,
+            operating_hours_per_day=operating_hours,
+            inbound_per_hour=inbound_per_hour,
+            outbound_per_hour=outbound_per_hour,
+        )
+
+        # Print day-level summary
+        print(f"{'='*60}")
+        print("=== ALTERNATING BUFFER COLUMN STRATEGY RESULTS ===")
+        print(f"{'='*60}")
+        print(
+            f"Layout: {n_rows} rows × {n_cols} columns × {n_levels} levels  "
+            f"(capacity {storage.total_positions})"
+        )
+        print(
+            f"Operating hours/day: {operating_hours}  |  "
+            f"Rate: {inbound_per_hour}/h in, {outbound_per_hour}/h out"
+        )
+        print(f"Min age for outbound: {min_age_h:.0f} h\n")
+        for dr in sim_results["day_results"]:
+            buf_col = n_cols if dr["day"] % 2 == 1 else 1
+            print(
+                f"Day {dr['day']:2d} | buffer_col={buf_col:2d} | "
+                f"outbound_order={dr['outbound_columns']} | "
+                f"inbound_order={dr['inbound_columns']}"
+            )
+            print(
+                f"       inbound={dr['inbound']:4d} | "
+                f"outbound={dr['outbound']:4d} | "
+                f"missed={dr['missed_outbound']:4d} | "
+                f"end_occupancy={dr['end_occupancy']:4d}/{storage.total_positions}"
+            )
+        print(f"{'='*60}")
+        print(
+            f"Total | inbound={sim_results['total_inbound']} | "
+            f"outbound={sim_results['total_outbound']} | "
+            f"missed={sim_results['missed_outbound']}"
+        )
+        print(f"{'='*60}\n")
+
+        return sim_results
+
     def run(self, traffic_control_enabled: bool = False) -> SimulationResults:
         """Execute the full simulation and return results.
 
@@ -442,6 +539,12 @@ class WarehouseSimulator:
             outbound_cycle_s=results.outbound_cycle.total_time_s,
             operating_hours=self.throughput.operating_hours,
         )
+
+        # --- Alternating buffer column strategy (optional, config-driven) ---
+        shuffle_cfg = self.config.get("Shuffle_Configuration", {})
+        strategy = shuffle_cfg.get("strategy", "")
+        if strategy == "alternating_buffer_column_24h":
+            results.alternating_buffer_results = self._run_alternating_buffer_strategy()
 
         return results
     def full_report(self, results: Optional[SimulationResults] = None) -> str:

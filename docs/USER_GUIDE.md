@@ -89,6 +89,65 @@ All simulator parameters are controlled via a JSON configuration file.
 
 ---
 
+## Shuffle_Configuration (optional)
+
+Activate a specialised dispatch/shuffle strategy via the optional
+`Shuffle_Configuration` block.
+
+### Alternating Buffer Column Strategy (`alternating_buffer_column_24h`)
+
+Models a **24-hour aging constraint** (a pallet produced on a given day
+cannot be shipped until at least 24 hours later) combined with an
+**alternating buffer-column policy** that ensures one column is always free
+to absorb new inbound stock.
+
+**Layout assumption:** 12 rows × 11 columns × 3 levels (396 total slots).
+One full production day = 10 columns × 12 × 3 = 360 pallets.
+One column (36 slots) is kept empty as a rolling intra-day buffer.
+
+**Day patterns (1-indexed):**
+
+| Day | Buffer column (empty at start) | Outbound scan order | Inbound fill order |
+|-----|--------------------------------|---------------------|--------------------|
+| Odd  (1, 3, …) | 11 | 10 → 1  | 11 → 2  |
+| Even (2, 4, …) | 1  | 2  → 11 | 1  → 10 |
+
+**Outbound selection:** strict column scan – the robot picks the first
+occupied slot (row 1 first) in the first eligible column.  A pallet is
+eligible only if its age ≥ `min_age_hours_for_outbound`.
+
+**Initial inventory:** at simulation start (hour 0), columns 1–10 are
+pre-filled with pallets whose `put_time_hour = -min_age_hours_for_outbound`
+so they are immediately eligible for outbound on Day 1.
+
+```json
+"Shuffle_Configuration": {
+  "strategy": "alternating_buffer_column_24h",
+  "min_age_hours_for_outbound": 24,
+  "buffer_columns": 1,
+  "num_days": 2
+}
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `strategy` | string | – | Set to `"alternating_buffer_column_24h"` to activate |
+| `min_age_hours_for_outbound` | float | `24.0` | Minimum pallet age in hours before outbound eligibility |
+| `buffer_columns` | int | `1` | Number of buffer columns (informational; code uses 1) |
+| `num_days` | int | `2` | Number of simulated days |
+
+**Sample config:** `config/config_alternating_buffer_11x12x3.json`
+
+```bash
+python main.py run --config config/config_alternating_buffer_11x12x3.json
+```
+
+The console output will include an **ALTERNATING BUFFER COLUMN STRATEGY RESULTS**
+section showing per-day inbound/outbound counts, the active column orders, and
+any missed outbound retrievals.
+
+---
+
 ## CLI Usage
 
 ```bash
