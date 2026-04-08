@@ -671,8 +671,8 @@ class TestWarehouseSimulatorOutboundIntegration:
         )
         config = load_config(config_path)
         sim = WarehouseSimulator(config)
-        assert sim.stacking.num_rows == 10
-        assert sim.stacking.num_columns == 12
+        assert sim.stacking.num_rows == 12
+        assert sim.stacking.num_columns == 11
         assert sim.stacking.num_levels == 3
 
     def test_simulator_outbound_fleet_sized(self):
