@@ -14,6 +14,7 @@ from .rack_storage import RackConfig, rack_config_from_dict
 from .ground_stacking import GroundStackingConfig, ground_stacking_config_from_dict
 from .fifo_storage import FIFOStorageModel
 from .traffic_control import TrafficControlConfig, TrafficControlModel, traffic_control_config_from_dict
+from .alternating_buffer_strategy import run_alternating_buffer_simulation
 from .cycle_calculator import (
     xpl201_handover_cycle,
     xqe122_rack_average_cycle,
@@ -403,10 +404,15 @@ class WarehouseSimulator:
         )
         
         # Dynamic simulation with variable hourly ratios (Option C)
-        results.avg_shuffles_per_outbound = self._simulate_two_zone_shuffles(
-            results.fifo_model,
-            self.throughput.operating_hours
-        )
+        shuffle_strategy = self.config.get("Shuffle_Configuration", {}).get("strategy", "")
+        if shuffle_strategy == "alternating_buffer_column_24h":
+            alt_result = run_alternating_buffer_simulation(self.config, num_days=2)
+            results.avg_shuffles_per_outbound = 0.0
+        else:
+            results.avg_shuffles_per_outbound = self._simulate_two_zone_shuffles(
+                results.fifo_model,
+                self.throughput.operating_hours
+            )
 
         # Fleet sizing for inbound / outbound
         results.inbound_fleet = calculate_fleet_size(

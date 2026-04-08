@@ -57,12 +57,12 @@
       "Length_mm": 21000,
       "Width_mm": 11500
     },
-    "Fork_Entry_Side": "Width",
+    "Fork_Entry_Side": "Length",
     "Clearance_mm": 200
   },
 
   "Traffic_Control": {
-    "Enabled": true,
+    "Enabled": false,
     "XQE_Min_Aisle_Width_mm": 2840,
     "XQE_Bidirectional_Width_mm": 3500
   },
@@ -75,13 +75,24 @@
     "XPL_201_Percentage": 0,
     "XQE_Rack_Percentage": 0,
     "XQE_Stacking_Percentage": 100,
-    "Utilization_Target": 0.8,
-    "Buffer_Capacity_Pallets": 10
+    "Utilization_Target": 0.9,
+    "Buffer_Capacity_Pallets": 36
   },
 
   "Shuffle_Configuration": {
     "strategy": "alternating_buffer_column_24h",
     "min_age_hours_for_outbound": 24,
-    "outbound_column_mode": "hard"
+    "outbound_column_mode": "preference",
+    "initial_fill_columns": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    "day_patterns": [
+      {
+        "inbound_column_order": [11, 10, 9, 8, 7, 6, 5, 4, 3, 2],
+        "outbound_column_order": [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+      },
+      {
+        "inbound_column_order": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "outbound_column_order": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+      }
+    ]
   }
 }
