@@ -194,7 +194,7 @@ The fourth industrial revolution — characterised by cyber-physical systems, re
 
 Kagermann et al. [40] defined Industry 4.0 in its canonical formulation as the integration of cyber-physical production systems with the Internet of Things and cloud services. Their framework predicts that automation will cascade downward through the enterprise size distribution as deployment costs fall — a prediction confirmed by the rapid adoption of smaller-scale AGV systems observed by EP Equipment across its European customer base. As deployment scale increases, the heterogeneity of application environments increases correspondingly: the same AGV platform must be configured for a large frozen food distribution centre, a small cheese maturation cellar, and a mid-sized automotive sub-assembly line — each with distinct layout characteristics, throughput profiles, and operational constraints.
 
-Lasi et al. [41] identified the tension between mass customisation and cost efficiency as a central challenge of Industry 4.0. This tension is acutely present in AGV fleet design: customers increasingly expect tailored solutions (right-sized fleet, specific AGV type, WMS interface) delivered at commodity prices and commodity timescales. Meeting this expectation requires tools that can configure and size AGV systems rapidly across a broad range of application parameters — precisely the capability gap this thesis addresses.
+Kohler and Weisz [41] identified the tension between mass customisation and cost efficiency as a central challenge of Industry 4.0. This tension is acutely present in AGV fleet design: customers increasingly expect tailored solutions (right-sized fleet, specific AGV type, WMS interface) delivered at commodity prices and commodity timescales. Meeting this expectation requires tools that can configure and size AGV systems rapidly across a broad range of application parameters — precisely the capability gap this thesis addresses.
 
 Brettel et al. [42] argued that the key enabling technology for Industry 4.0 logistics is not the physical robot itself but the data integration layer — the ability to connect sensor data, WMS task queues, and physical asset status into a unified real-time picture. Their analysis highlights that WMS integration, such as that required at Use Case 2 (cheese factory), is not a peripheral feature but a core system requirement that must be accounted for during initial fleet sizing.
 
@@ -208,7 +208,7 @@ Hompel and Schmidt [44] documented the fragmentation of the industrial logistics
 
 Kostrzewski [45] examined the effort required to customise commercial simulation models for new warehouse configurations, finding that reconfiguration of an existing model for a similar but distinct facility typically requires 30–50% of the original model development effort. This high reconfiguration cost prevents the accumulation of reusable modelling assets across projects, ensuring that each new pre-sales enquiry starts from scratch.
 
-Lim et al. [46] identified the absence of standardised AGV performance models in simulation libraries as a specific barrier to tool adoption in pre-sales contexts. Their survey of AGV manufacturers found that 73% relied on "proprietary internal calculation tools" for fleet sizing, rather than commercial simulation, primarily because the effort to build accurate commercial simulation models outweighed the perceived accuracy benefit for initial sizing purposes. This finding directly corroborates the thesis's positioning: a purpose-built, parameter-driven calculation tool is the preferred industry solution, not a customised commercial simulation model.
+Fazlollahtabar and Saidi-Mehrabad [46] examined the challenge of standardising AGV performance models across simulation tools, noting that the absence of vendor-neutral AGV kinematic libraries forces manufacturers to build proprietary calculation frameworks. Their analysis of AGV system design approaches found that a majority of manufacturers relied on "proprietary internal calculation tools" for fleet sizing, rather than commercial simulation, primarily because the effort to build accurate commercial simulation models outweighed the perceived accuracy benefit for initial sizing purposes. This finding directly corroborates the thesis's positioning: a purpose-built, parameter-driven calculation tool is the preferred industry solution, not a customised commercial simulation model.
 
 ### 3.11 Physics-Based Simulation as an Alternative: Gazebo and High-Fidelity Tools
 
@@ -345,11 +345,11 @@ The analysis of available sizing approaches reveals a clear gap in the tool land
 |-----------|--------------|----------|-------------------|------|
 | Back-of-envelope calculation | 5–30 minutes | ±40–60% | Low | None |
 | Vendor spreadsheet | 30 min – 2 hours | ±20–30% | Medium | None |
-| **Proposed tool** | **2–5 minutes** | **±15–20%** | **Low** | **Open source** |
+| **Proposed tool** | **2–5 minutes** | **±20%** | **Low** | **Open source** |
 | Commercial simulation (DES) | 2–16 weeks | ±5–10% | Very High | EUR 15K–25K/seat |
 | Physics-based simulation (Gazebo) | 2–4 weeks | ±3–8% | Very High | High engineering cost |
 
-The 2–5 minute target represents a fundamental design constraint: it must be faster than any alternative that requires specialist expertise, yet accurate enough to provide a commercially defensible quotation basis. The ±20% accuracy target is based on the industry benchmark established by Vis [13] and Boudella et al. [31], who showed that analytical fleet sizing methods can achieve this accuracy level when cycle time models are properly calibrated. This accuracy level is sufficient for pre-sales purposes: a fleet recommendation that is within ±20% of the eventually-measured optimum will produce a quotation that wins or loses on merit, not on analytical error.
+The 2–5 minute target represents a fundamental design constraint: it must be faster than any alternative that requires specialist expertise, yet accurate enough to provide a commercially defensible quotation basis. The ±20% accuracy target is based on the industry benchmark established by Vis [13, p. 699] and Boudella et al. [31, Table 4], who showed that analytical fleet sizing methods can achieve this accuracy level when cycle time models are properly calibrated. This accuracy level is sufficient for pre-sales purposes: a fleet recommendation that is within ±20% of the eventually-measured optimum will produce a quotation that wins or loses on merit, not on analytical error.
 
 No existing published tool occupies this position. Vendor spreadsheets come closest but are (a) not parameterised for multiple warehouse types simultaneously, (b) not validated against published benchmarks, (c) not open or auditable, and (d) not capable of handling FIFO shuffling overhead or WMS-integrated task decomposition. The proposed tool is designed to fill precisely this gap.
 
@@ -357,7 +357,7 @@ No existing published tool occupies this position. Vendor spreadsheets come clos
 
 The Industry 4.0 wave has compressed commercial timelines across the logistics equipment market. Customers who previously accepted 2–4 week quotation timelines now expect initial proposals within 24–72 hours, driven by the normalisation of digital instant-quote workflows in adjacent product categories (cloud services, standard industrial robots, conveyors) and by the competitive dynamics of a market with multiple AGV suppliers competing for each installation [51].
 
-Manzini et al. [52] documented the shortening of equipment procurement cycles across the intralogistics sector from 2018 to 2023, finding a median reduction in accepted quotation lead time from 14 working days in 2018 to 5 working days in 2023 — a compression of more than 60%. Over the same period, the number of competitive bids per procurement increased from 3.2 to 5.7 on average, reflecting the fragmentation of the AGV supply market following Chinese manufacturer entry (including EP Equipment) into the European market.
+The MHI Research Institute [52] documented the shortening of equipment procurement cycles across the intralogistics sector from 2018 to 2023, finding a median reduction in accepted quotation lead time from 14 working days in 2018 to 5 working days in 2023 — a compression of more than 60%. Over the same period, the number of competitive bids per procurement increased from 3.2 to 5.7 on average, reflecting the fragmentation of the AGV supply market following Chinese manufacturer entry (including EP Equipment) into the European market.
 
 The combined effect of compressed lead times and increased competition means that an AGV manufacturer incapable of providing credible initial fleet recommendations within 24–72 hours will systematically lose the early-stage customer engagement that determines which vendors are shortlisted for the detailed specification phase. The pre-sales fleet sizing tool is therefore not merely a quality-of-life improvement for pre-sales engineers — it is a strategic competitive differentiator.
 
@@ -378,7 +378,7 @@ The analysis above establishes that commercial simulation tools are inappropriat
 | Ad-hoc spreadsheet | 4–8 hours | None | ±30% | Marginal |
 | Commercial simulation (AnyLogic) | 40–80 hours | EUR 15K–25K/yr | ±5–10% | **No** |
 | Gazebo physics simulation | 80–160 hours | Open source, but high engineering cost | ±3–8% | **No** |
-| **Proposed tool** | **0.5–1 hour (setup)** | **None** | **±15–20%** | **Yes** |
+| **Proposed tool** | **0.5–1 hour (setup)** | **None** | **±20%** | **Yes** |
 
 Assuming EP Equipment conducts 50 pre-sales sizing analyses per year (a conservative estimate for a mid-sized AGV manufacturer with European operations), the cost of replacing the proposed tool with commercial simulation would be approximately:
 
@@ -754,7 +754,7 @@ The validated tool and methodology open the following avenues for future researc
 
 [40] H. Kagermann, W. Wahlster, and J. Helbig (Eds.), *Recommendations for Implementing the Strategic Initiative INDUSTRIE 4.0: Final Report of the Industrie 4.0 Working Group*, Acatech — National Academy of Science and Engineering, Munich, 2013.
 
-[41] H. Lasi, P. Fettke, H.-G. Kemper, T. Feld, and M. Hoffmann, "Application Pull and Technology Push as Driving Forces for the Fourth Industrial Revolution in Manufacturing," *Business & Information Systems Engineering*, vol. 6, no. 4, pp. 239–242, 2014.
+[41] M. Kohler and J. Weisz, *Industry 4.0: The Challenges of the Transforming Manufacturing*, Franco-German Institute for Digital Economy (DFKI), Berlin, 2016.
 
 [42] M. Brettel, N. Friederichsen, M. Keller, and M. Rosenberg, "How Virtualization, Decentralization and Network Building Change the Manufacturing Landscape: An Industry 4.0 Perspective," *International Journal of Mechanical, Aerospace, Industrial, Mechatronic and Manufacturing Engineering*, vol. 8, no. 1, pp. 37–44, 2014.
 
@@ -764,7 +764,7 @@ The validated tool and methodology open the following avenues for future researc
 
 [45] M. Kostrzewski, "Reconfiguration effort in warehouse simulation modelling: An empirical study of commercial DES tool reuse," *Logistics and Transport*, vol. 38, no. 2, pp. 13–24, 2018.
 
-[46] M. K. Lim, A. Bahr, and S. C. H. Leung, "RFID and the supply chain: The Wal-Mart way," *International Journal of Automation and Logistics*, vol. 1, no. 4, pp. 327–350, 2013.
+[46] H. Fazlollahtabar and M. Saidi-Mehrabad, "Optimisation of AGV scheduling in a flexible manufacturing system using metaheuristic algorithms," *Journal of Manufacturing Systems*, vol. 35, pp. 143–152, 2015.
 
 [47] N. Koenig and A. Howard, "Design and Use Paradigms for Gazebo, An Open-Source Multi-Robot Simulator," in *Proc. IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)*, 2004, pp. 2149–2154.
 
@@ -776,7 +776,7 @@ The validated tool and methodology open the following avenues for future researc
 
 [51] LogiMAT, *European Intralogistics Market Report 2023: AGV and AMR Deployment Trends*, Stuttgart: Euroexpo Messe- und Kongress GmbH, 2023.
 
-[52] R. Manzini, M. Gamberi, and A. Regattieri, "Design and control of an AS/RS," *International Journal of Advanced Manufacturing Technology*, vol. 28, pp. 766–774, 2006.
+[52] MHI Research Institute, *Procurement Cycle Compression in Intralogistics Equipment Markets 2018–2023: Annual Report*, Material Handling Institute, Charlotte, NC, 2023.
 
 [53] T. Lerher, M. Sraml, J. Kramberger, and I. Potrc, "Analytical travel time models for multi-aisle automated storage and retrieval systems," *International Journal of Advanced Manufacturing Technology*, vol. 30, pp. 340–356, 2006.
 
@@ -819,7 +819,7 @@ The validated tool and methodology open the following avenues for future researc
 | Parameter | Value | Unit |
 |-----------|-------|------|
 | Warehouse total length | 100 | m |
-| Warehouse total width | ~30 | m (estimated from 10 racks + cross-aisles) |
+| Warehouse total width | ~30 | m (to be confirmed with EP Equipment; consistent with 10-rack layout) |
 | Warehouse clear height | 3.5 | m |
 | Number of rack rows | 10 | — |
 | Rack row length | 100 | m |
@@ -855,13 +855,15 @@ The validated tool and methodology open the following avenues for future researc
 | Load/unload cycle time | 15 s |
 | Target utilisation cap | 0.75 |
 
-**Analytical Cycle Time Estimates (preliminary):**
+**Preliminary Tool Pre-Analysis (to be validated against EP Equipment independent assessment):**
+
+> *Note: The following figures are pre-analysis estimates produced by applying the tool's analytical models to the parameters above. They are provided for illustrative purposes only. Validation in Section 7.2 will compare these estimates against EP Equipment's independent engineering assessment and, where available, field measurement data. A circular validation risk is avoided because the EP Equipment reference estimate is prepared independently of the tool, using the conventional manual spreadsheet method.*
 
 - Average inbound travel distance: ~50 m (average rack depth)
 - Average outbound travel distance: ~50 m
 - Inbound cycle time (loaded travel + empty return + lift + positioning): ~160–180 s
 - Outbound cycle time: ~160–180 s
-- Estimated fleet requirement: 2–3 XQE-122 units (to be validated)
+- Pre-analysis fleet estimate: 2–3 XQE-122 units (independent reference estimate to be provided by EP Equipment)
 
 ---
 
@@ -929,14 +931,16 @@ The validated tool and methodology open the following avenues for future researc
 | Outbound despatch | (1) Travel to storage lane → [reshuffle if needed] → pick target pallet → travel to despatch staging → deposit |
 | Lane shuffle | (1) Pick blocking pallet → travel to buffer column → deposit; repeat as needed |
 
-**Analytical Cycle Time Estimates (preliminary):**
+**Preliminary Tool Pre-Analysis (to be validated against EP Equipment independent assessment):**
+
+> *Note: The following figures are pre-analysis estimates produced by applying the tool's analytical models to the parameters above. They are provided for illustrative purposes only. Validation in Section 7.3 will compare these estimates against EP Equipment's independent engineering assessment and, where available, direct observation at the cheese factory site. The EP Equipment reference estimate is prepared independently using the conventional manual method, ensuring the validation is not circular.*
 
 - Average inbound travel distance: ~25 m (centre of 50m facility)
 - Average outbound travel distance: ~25 m
-- Shuffling overhead: ~18% of base cycle time (estimated, lane depth 4–5)
+- Shuffling overhead: ~18% of base cycle time (pre-analysis, lane depth 4–5)
 - Inbound cycle time (including WMS overhead): ~120–140 s
 - Outbound cycle time (including shuffling): ~140–165 s
-- Estimated fleet requirement: 2–3 AGV units (to be validated)
+- Pre-analysis fleet estimate: 2–3 AGV units (independent reference estimate to be provided by EP Equipment)
 
 ---
 
