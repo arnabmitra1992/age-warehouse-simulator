@@ -384,17 +384,16 @@ The thesis makes the following original contributions:
 
 ## 7. Timeline
 
-| Month | Milestone |
-|-------|-----------|
-| Month 1 | Literature review complete; analytical model specification finalised |
-| Month 2 | Cycle time and fleet sizing modules implemented and unit-tested |
-| Month 3 | FIFO and shuffling module implemented; AGV type selection module implemented |
-| Month 4 | Use Case 1 data collection and validation; tool integration testing |
-| Month 5 | Use Case 2 data collection and validation; tool refinement |
-| Month 6 | Thesis writing (Chapters 1–4) |
-| Month 7 | Thesis writing (Chapters 5–7, appendices) |
-| Month 8 | Supervisor review and revision |
-| Month 9 | Final submission |
+**Target submission: October 2026** (6 months from April 2026)
+
+| Period | Calendar Months | Milestone |
+|--------|-----------------|-----------|
+| Month 1 | April–May 2026 | Literature review complete; analytical model specification finalised; cycle time and fleet sizing modules implemented and unit-tested |
+| Month 2 | May–June 2026 | FIFO and shuffling module implemented; AGV type selection module implemented; tool integration testing |
+| Month 3 | June–July 2026 | Use Case 1 data collection and validation (rack warehouse) |
+| Month 4 | July–August 2026 | Use Case 2 data collection and validation (cheese factory); tool refinement |
+| Month 5 | August–September 2026 | Thesis writing (all chapters and appendices) |
+| Month 6 | September–October 2026 | Supervisor review, revision, and final submission |
 
 ---
 
