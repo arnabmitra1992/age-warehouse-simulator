@@ -16,7 +16,6 @@
     },
     "Turn_90_degrees_s": 10
   },
-
   "Warehouse_Layout": {
     "Distances_mm": {
       "Rest_to_Inbound": 5000,
@@ -36,14 +35,12 @@
       "Outbound_Access_Width_mm": 3900
     }
   },
-
   "Rack_Configuration": {
     "Rack_Length_mm": 20000,
     "Pallet_Width_mm": 800,
     "Shelf_Height_Spacing_mm": 1300,
     "Position_Spacing_mm": 950
   },
-
   "Ground_Stacking_Configuration": {
     "Rows": 12,
     "Columns": 11,
@@ -60,13 +57,11 @@
     "Fork_Entry_Side": "Width",
     "Clearance_mm": 200
   },
-
   "Traffic_Control": {
     "Enabled": true,
     "XQE_Min_Aisle_Width_mm": 2840,
     "XQE_Bidirectional_Width_mm": 3500
   },
-
   "Throughput_Configuration": {
     "Total_Daily_Pallets": 360,
     "Total_Daily_Inbound_Pallets": 360,
@@ -78,39 +73,80 @@
     "Utilization_Target": 0.8,
     "Buffer_Capacity_Pallets": 10
   },
-
   "Shuffle_Configuration": {
     "strategy": "alternating_buffer_column_24h",
     "min_age_hours_for_outbound": 24,
     "outbound_column_mode": "hard",
-    "initial_fill_columns": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    "initial_fill_columns": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
     "day_patterns": [
       {
-        "inbound_column_order": [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
-        "outbound_column_order": [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 11]
+        "inbound_column_order": [
+          11,
+          10,
+          9,
+          8,
+          7,
+          6,
+          5,
+          4,
+          3,
+          2,
+          1
+        ],
+        "outbound_column_order": [
+          10,
+          9,
+          8,
+          7,
+          6,
+          5,
+          4,
+          3,
+          2,
+          1,
+          11
+        ]
       },
       {
-        "inbound_column_order": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-        "outbound_column_order": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 1]
+        "inbound_column_order": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "outbound_column_order": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          1
+        ]
       }
     ]
   }
 }
-  "Shuffle_Configuration": {
-    "strategy": "alternating_buffer_column_24h",
-    "min_age_hours_for_outbound": 24,
-    "outbound_column_mode": "hard",
-    "initial_fill_columns": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    "day_patterns": [
-      {
-        "inbound_column_order": [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
-        "outbound_column_order": [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 11]
-      },
-      {
-        "inbound_column_order": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-        "outbound_column_order": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 1]
-      }
-    ]
-  }
-}
-
