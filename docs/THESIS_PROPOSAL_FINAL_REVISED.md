@@ -275,7 +275,7 @@ Masoud, Elhafsi, and Hassini [30] studied real-time task dispatching in WMS-inte
 
 Boudella, Sahin, and Dallery [31] presented a case study of AGV fleet deployment in a food distribution warehouse, reporting that analytical fleet sizing models overestimated required fleet size by 15% relative to field measurements. Their data confirms the +/-20% accuracy target adopted for the proposed tool.
 
-Le-Anh &amp; de Koster [32] described a real-world implementation of a mixed-fleet AGV system (counterbalance + pallet truck) in a European automotive parts warehouse, reporting that the coordination overhead between vehicle types added 25-35 seconds per inter-type task handover. This empirical figure closely corroborates the 30-40 second handover overhead estimated in the proposed tool's Use Case 2 analysis, and represents an independent validation of the handover cost model.
+Le-Anh &amp; de Koster [32] provided a foundational review of warehouse order picking system design and control, including material flow architecture, control policy choices, and system-level performance trade-offs. Their synthesis supports the thesis approach of using literature-based operational assumptions during pre-sales analysis. The specific 30-40 second inter-type handover overhead used in Use Case 2 is not claimed as a direct finding of [32]; it is treated in this proposal as an engineering estimate requiring field validation (see Sections 8.4 and 9).
 
 Mourtzis, Doukas, and Bernidaki [33] surveyed Industry 4.0 implementations in logistics, documenting the increasing prevalence of WMS-integrated autonomous mobile equipment and the operational challenges of fleet management in mixed-type autonomous fleets. Their discussion of fleet management system complexity as a function of AGV type diversity informs the fleet simplification recommendation in Use Case 2.
 
@@ -980,7 +980,7 @@ This section maps the 8 literature integration gaps (Section 8.4) to specific co
 ```
 April 2026:
   - Weeks 1-4: Literature audit (all references verified) ✓
-  - Gap #5 subtask: Confirm Use Case 1 &amp; 2 customer access
+  - Gap #5 subtask: Confirm Use Case 1 & 2 customer access
   
 May 2026:
   - Weeks 1-4: Core analytical model finalization
@@ -996,7 +996,7 @@ July 2026:
   
 August 2026:
   - Weeks 1-2: Use Case 1 validation data collection
-  - Gap #2 &amp; #6 optional implementation (if time permits)
+  - Gap #2 & #6 optional implementation (if time permits)
   - Gap #4 decision point: Commercial tool comparison optional
   
 September 2026:
@@ -1066,7 +1066,7 @@ All gaps documented in thesis with implementation roadmap for EP Equipment's Pha
 
 ## 11. Timeline (Compressed April–October 2026)
 
-**Timeline Compression Rationale:** The original 8-month timeline (April 2026–January 2027) has been compressed to 6 months (April–October 2026) by overlapping parallel work streams and prioritizing critical path activities. This compression achieves 12% time reduction (20 working days saved) without reducing scope through phase overlap and optimized resource allocation.
+**Timeline Compression Rationale:** The original 8-month timeline (April 2026–January 2027) has been compressed to 6 months (April–October 2026) by overlapping parallel work streams and prioritizing critical path activities. Calendar duration is reduced from 8 to 6 months, and the optimized plan saves 20 working days out of 160 (12.5% reduction relative to the original working-day plan) without reducing scope.
 
 **Total Duration:** 140 working days (6 months) vs. 160 days (8 months original)
 
