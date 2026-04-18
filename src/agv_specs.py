@@ -4,6 +4,9 @@ AGV Specifications for XQE_122, XPL_201, and XNA vehicles.
 from dataclasses import dataclass, field
 from typing import Optional, List
 
+# XNA narrow-aisle models are only recommended for aisles narrower than this
+# threshold.  Standard-width aisles (>= 2.5 m) should use XQE_122 or XPL_201.
+XNA_MAX_AISLE_WIDTH: float = 2.5
 
 @dataclass
 class XQE122Specs:
@@ -218,6 +221,11 @@ def get_compatible_agvs_for_aisle(
         if storage_type not in spec["storage_types"]:
             continue
         if aisle_width < spec["aisle_width"]:
+            continue
+        # XNA narrow-aisle models are only recommended when the aisle is
+        # genuinely narrow (< XNA_MAX_AISLE_WIDTH).  Standard-width aisles
+        # should use XQE_122 or XPL_201 instead.
+        if name.startswith("XNA") and aisle_width >= XNA_MAX_AISLE_WIDTH:
             continue
         if required_lift_height is not None:
             if spec["max_lift_height"] < required_lift_height:

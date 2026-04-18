@@ -29,20 +29,42 @@ from .fleet_sizing import FleetSizingResult, AisleAnalysis
 
 logger = logging.getLogger(__name__)
 
-# Color scheme
+# ---------------------------------------------------------------------------
+# Publication-quality defaults
+# ---------------------------------------------------------------------------
+
+# 300 DPI is standard for journal/thesis figures.
+PUBLICATION_DPI = 300
+
+# Color-blind–friendly palette (Wong 2011, 8-color safe palette).
+# These colors are distinguishable for the most common forms of color-vision
+# deficiency (deuteranopia, protanopia, tritanopia).
+CB_PALETTE = {
+    "black":   "#000000",
+    "orange":  "#E69F00",
+    "sky":     "#56B4E9",
+    "green":   "#009E73",
+    "yellow":  "#F0E442",
+    "blue":    "#0072B2",
+    "vermilion": "#D55E00",
+    "pink":    "#CC79A7",
+}
+
+# Node/edge color scheme – using color-blind–friendly colors
 COLORS = {
-    "dock": "#E74C3C",
-    "head_aisle_pt": "#3498DB",
-    "aisle_entry": "#2ECC71",
-    "aisle_exit": "#27AE60",
+    "dock": CB_PALETTE["vermilion"],
+    "head_aisle_pt": CB_PALETTE["sky"],
+    "aisle_entry": CB_PALETTE["green"],
+    "aisle_exit": CB_PALETTE["green"],
     "storage_position": "#BDC3C7",
-    "edge_forward": "#2980B9",
-    "edge_reverse": "#E67E22",
+    "edge_forward": CB_PALETTE["blue"],
+    "edge_reverse": CB_PALETTE["orange"],
     "background": "#F8F9FA",
-    "XQE_122": "#3498DB",
-    "XPL_201": "#E74C3C",
-    "XNA_121": "#2ECC71",
-    "XNA_151": "#9B59B6",
+    # AGV type colors (color-blind–friendly)
+    "XQE_122": CB_PALETTE["blue"],
+    "XPL_201": CB_PALETTE["vermilion"],
+    "XNA_121": CB_PALETTE["green"],
+    "XNA_151": CB_PALETTE["pink"],
 }
 
 NODE_SIZES = {
@@ -52,6 +74,21 @@ NODE_SIZES = {
     "aisle_exit": 300,
     "storage_position": 60,
 }
+
+# Global matplotlib rcParams for publication quality
+plt.rcParams.update({
+    "font.family": "sans-serif",
+    "font.size": 11,
+    "axes.titlesize": 13,
+    "axes.labelsize": 11,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "legend.fontsize": 10,
+    "figure.dpi": PUBLICATION_DPI,
+    "savefig.dpi": PUBLICATION_DPI,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+})
 
 
 class WarehouseVisualizer:
@@ -159,17 +196,16 @@ class WarehouseVisualizer:
             mpatches.Patch(color=COLORS["edge_forward"], label="Forward Travel"),
             mpatches.Patch(color=COLORS["edge_reverse"], label="Reverse Travel (Fork)"),
         ]
-        ax.legend(handles=legend_handles, loc="upper right", fontsize=8,
-                  fancybox=True, framealpha=0.9)
+        ax.legend(handles=legend_handles, loc="upper right", fancybox=True, framealpha=0.9)
 
-        ax.set_title(title, fontsize=14, fontweight="bold", pad=12)
-        ax.set_xlabel("X position (m)", fontsize=10)
-        ax.set_ylabel("Y position (m)", fontsize=10)
+        ax.set_title(title, fontweight="bold", pad=12)
+        ax.set_xlabel("X position (m)")
+        ax.set_ylabel("Y position (m)")
         ax.grid(True, alpha=0.3, linestyle="--")
 
         plt.tight_layout()
         if save_path:
-            fig.savefig(save_path, dpi=150, bbox_inches="tight")
+            fig.savefig(save_path, dpi=PUBLICATION_DPI, bbox_inches="tight")
             logger.info("Graph saved to %s", save_path)
         if show:
             plt.show()
@@ -231,7 +267,7 @@ class WarehouseVisualizer:
 
         plt.tight_layout()
         if save_path:
-            fig.savefig(save_path, dpi=150, bbox_inches="tight")
+            fig.savefig(save_path, dpi=PUBLICATION_DPI, bbox_inches="tight")
         if show:
             plt.show()
         return fig
@@ -286,7 +322,7 @@ class WarehouseVisualizer:
 
         plt.tight_layout()
         if save_path:
-            fig.savefig(save_path, dpi=150, bbox_inches="tight")
+            fig.savefig(save_path, dpi=PUBLICATION_DPI, bbox_inches="tight")
         if show:
             plt.show()
         return fig
@@ -351,7 +387,7 @@ class WarehouseVisualizer:
 
         plt.tight_layout()
         if save_path:
-            fig.savefig(save_path, dpi=150, bbox_inches="tight")
+            fig.savefig(save_path, dpi=PUBLICATION_DPI, bbox_inches="tight")
         if show:
             plt.show()
         return fig
@@ -398,7 +434,7 @@ class WarehouseVisualizer:
 
         plt.tight_layout()
         if save_path:
-            fig.savefig(save_path, dpi=150, bbox_inches="tight")
+            fig.savefig(save_path, dpi=PUBLICATION_DPI, bbox_inches="tight")
         if show:
             plt.show()
         return fig

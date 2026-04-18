@@ -130,12 +130,22 @@ class TestAGVSpecs:
         assert "XQE_122" not in compatible  # aisle too narrow
 
     def test_get_compatible_agvs_for_aisle_wide_rack(self):
-        # 2.84m wide aisle, rack, 4.5m height
+        # 2.84m wide aisle, rack, 4.5m height – XNA models excluded (>= 2.5m threshold)
         compatible = get_compatible_agvs_for_aisle(2.84, "rack", required_lift_height=4.5)
         assert "XQE_122" in compatible
-        assert "XNA_121" in compatible
+        # XNA models are only for narrow aisles (< 2.5m), not standard-width aisles
+        assert "XNA_121" not in compatible
+        assert "XNA_151" not in compatible
         # XPL_201 can't do rack
         assert "XPL_201" not in compatible
+
+    def test_get_compatible_agvs_for_aisle_narrow_rack_threshold(self):
+        # 2.49m aisle is below XNA threshold – XNA models should be included
+        compatible = get_compatible_agvs_for_aisle(2.49, "rack", required_lift_height=4.5)
+        assert "XNA_121" in compatible
+        assert "XNA_151" in compatible
+        # XQE_122 needs 2.84m, so excluded from narrow aisle
+        assert "XQE_122" not in compatible
 
 
 # ---------------------------------------------------------------------------
@@ -476,25 +486,26 @@ class TestFleetSizing:
     def test_aisle_compatibility_sa1(self):
         analyses = self.calc.analyse_aisles()
         sa1 = next(a for a in analyses if a.aisle_name == "SA1")
-        # SA1 is 2.84m rack aisle – XQE, XNA_121, XNA_151 should be compatible
+        # SA1 is 2.84m rack aisle – only XQE_122 should be compatible
+        # (XNA models are excluded from standard-width aisles >= 2.5m)
         assert "XQE_122" in sa1.compatible_agvs
-        assert "XNA_121" in sa1.compatible_agvs
-        assert "XNA_151" in sa1.compatible_agvs
+        assert "XNA_121" not in sa1.compatible_agvs
+        assert "XNA_151" not in sa1.compatible_agvs
         # XPL is ground only
         assert "XPL_201" not in sa1.compatible_agvs
 
     def test_fleet_size_formula(self):
         """Fleet size = ceil(tph / (tph_per_agv * utilization))."""
         analyses = self.calc.analyse_aisles()
-        # Get XNA_121 cycle time
-        xna_analysis = [a for a in analyses if "XNA_121" in a.cycle_times]
-        assert xna_analysis
-        avg_ct = sum(a.cycle_times["XNA_121"] for a in xna_analysis) / len(xna_analysis)
+        # Get XQE_122 cycle time (medium warehouse has standard-width aisles; XNA excluded)
+        xqe_analysis = [a for a in analyses if "XQE_122" in a.cycle_times]
+        assert xqe_analysis
+        avg_ct = sum(a.cycle_times["XQE_122"] for a in xqe_analysis) / len(xqe_analysis)
         tph_per_agv = 3600.0 / avg_ct
         expected_fleet = math.ceil(30.0 / (tph_per_agv * 0.80))
 
-        result = self.calc.calculate_fleet_size(tasks_per_hour=30.0, agv_type="XNA_121")
-        assert result.fleet_size_per_agv["XNA_121"] == expected_fleet
+        result = self.calc.calculate_fleet_size(tasks_per_hour=30.0, agv_type="XQE_122")
+        assert result.fleet_size_per_agv["XQE_122"] == expected_fleet
 
     def test_fleet_size_scales_with_throughput(self):
         """More throughput → more AGVs needed."""
@@ -516,12 +527,22 @@ class TestFleetSizing:
 
     def test_throughput_sensitivity(self):
         tph_range = [10.0, 20.0, 30.0, 40.0, 50.0]
-        data = self.calc.throughput_sensitivity("XNA_121", tph_range)
+        data = self.calc.throughput_sensitivity("XQE_122", tph_range)
         assert len(data) == len(tph_range)
         # Fleet sizes should be non-decreasing
         fleet_sizes = [d[1] for d in data]
         for i in range(1, len(fleet_sizes)):
             assert fleet_sizes[i] >= fleet_sizes[i - 1]
+
+    def test_throughput_sensitivity_xna_narrow_aisle(self):
+        """XNA_121 sensitivity works when the warehouse has narrow aisles."""
+        from src.reference_layouts import COMPLEX_WAREHOUSE_JSON
+        wg = WarehouseGraph()
+        wg.build_from_layout(COMPLEX_WAREHOUSE_JSON)
+        calc = FleetSizingCalculator(wg, COMPLEX_WAREHOUSE_JSON)
+        tph_range = [10.0, 20.0, 30.0]
+        data = calc.throughput_sensitivity("XNA_121", tph_range)
+        assert len(data) == len(tph_range)
 
     def test_fleet_result_to_dict(self):
         result = self.calc.calculate_fleet_size(30.0)
