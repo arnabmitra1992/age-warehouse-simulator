@@ -168,7 +168,7 @@ class TestLaneSequenceNoShuffling:
             m.inbound_put()
         assert m.average_shuffles_per_outbound() == 0.0
 
-    def test_avg_shuffles_method_alias_is_zero(self):
+    def test_avg_shuffles_per_outbound_alias_returns_zero(self):
         m = LaneSequenceStorageModel(num_rows=5, num_columns=4, num_levels=3)
         assert m.avg_shuffles_per_outbound() == 0.0
 
