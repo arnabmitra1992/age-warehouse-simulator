@@ -24,6 +24,7 @@ from .cycle_calculator import (
     xqe122_outbound_average_cycle,
     xqe122_shuffling_average_cycle,
     CycleResult,
+    CyclePhase,
 )
 from .fleet_sizer import (
     ThroughputConfig,
@@ -444,7 +445,7 @@ class WarehouseSimulator:
                 self.throughput.operating_hours
             )
 
-        # Fleet sizing for inbound / outbound
+        # Preliminary fleet sizing (baseline cycles)
         results.inbound_fleet = calculate_fleet_size(
             daily_pallets=self.throughput.effective_inbound_pallets,
             avg_cycle_time_s=results.inbound_cycle.total_time_s,
@@ -474,7 +475,7 @@ class WarehouseSimulator:
             workflow="Shuffling",
         )
 
-        # Traffic control model
+        # Traffic control model (uses baseline cycles for arrival estimation)
         total_agvs = results.total_outbound_fleet_size or 1
         results.traffic_model = TrafficControlModel(
             aisle_widths=self.aisle_widths,
@@ -484,6 +485,38 @@ class WarehouseSimulator:
             outbound_cycle_s=results.outbound_cycle.total_time_s,
             operating_hours=self.throughput.operating_hours,
         )
+
+        if traffic_control_enabled and results.traffic_model:
+            inbound_wait = results.traffic_model.total_wait_time_inbound_s()
+            outbound_wait = results.traffic_model.total_wait_time_outbound_s()
+            if inbound_wait > 0:
+                results.inbound_cycle.total_time_s += inbound_wait
+                results.inbound_cycle.phases.append(
+                    CyclePhase("Traffic control wait", inbound_wait, "aisle/intersection delays")
+                )
+            if outbound_wait > 0:
+                results.outbound_cycle.total_time_s += outbound_wait
+                results.outbound_cycle.phases.append(
+                    CyclePhase("Traffic control wait", outbound_wait, "aisle/intersection delays")
+                )
+
+            # Recalculate inbound/outbound fleet sizes with traffic delays
+            results.inbound_fleet = calculate_fleet_size(
+                daily_pallets=self.throughput.effective_inbound_pallets,
+                avg_cycle_time_s=results.inbound_cycle.total_time_s,
+                operating_hours=self.throughput.operating_hours,
+                utilization_target=self.throughput.utilization_target,
+                vehicle_type="XQE_122",
+                workflow="Inbound",
+            )
+            results.outbound_fleet = calculate_fleet_size(
+                daily_pallets=self.throughput.effective_outbound_pallets,
+                avg_cycle_time_s=results.outbound_cycle.total_time_s,
+                operating_hours=self.throughput.operating_hours,
+                utilization_target=self.throughput.utilization_target,
+                vehicle_type="XQE_122",
+                workflow="Outbound",
+            )
 
         return results
 
