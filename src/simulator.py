@@ -13,6 +13,7 @@ from .warehouse_layout import WarehouseDistances, AisleWidths, distances_from_di
 from .rack_storage import RackConfig, rack_config_from_dict
 from .ground_stacking import GroundStackingConfig, ground_stacking_config_from_dict
 from .fifo_storage import FIFOStorageModel
+from .lane_sequence_storage import LaneSequenceStorageModel
 from .traffic_control import TrafficControlConfig, TrafficControlModel, traffic_control_config_from_dict
 from .alternating_buffer_strategy import run_alternating_buffer_simulation
 from .cycle_calculator import (
@@ -23,6 +24,7 @@ from .cycle_calculator import (
     xqe122_outbound_average_cycle,
     xqe122_shuffling_average_cycle,
     CycleResult,
+    CyclePhase,
 )
 from .fleet_sizer import (
     ThroughputConfig,
@@ -69,6 +71,7 @@ class SimulationResults:
         self.avg_shuffles_per_outbound: float = 0.0
         self.fifo_model: Optional[FIFOStorageModel] = None
         self.traffic_model: Optional[TrafficControlModel] = None
+        self.block_storage_policy: str = "fifo"  # "fifo" or "column_fifo"
 
     @property
     def total_fleet_size(self) -> int:
@@ -115,6 +118,7 @@ class SimulationResults:
         # Outbound workflow metrics (if computed)
         if self.inbound_cycle or self.outbound_cycle:
             base["outbound_workflow"] = {
+                "block_storage_policy": self.block_storage_policy,
                 "inbound_cycle_s": self.inbound_cycle.total_time_s if self.inbound_cycle else 0,
                 "outbound_cycle_s": self.outbound_cycle.total_time_s if self.outbound_cycle else 0,
                 "shuffling_cycle_s": self.shuffling_cycle.total_time_s if self.shuffling_cycle else 0,
@@ -169,26 +173,26 @@ class WarehouseSimulator:
         self.traffic_cfg = traffic_control_config_from_dict(
             self.config.get("Traffic_Control", {})
         )
-    
+
     def _simulate_dynamic_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
         """
         Simulate dynamic inbound/outbound with variable ratios throughout the day.
         Returns average shuffles per outbound retrieval.
-            
+
         Simulates:
         - Hours 1-3: 70% inbound, 30% outbound (morning receiving)
         - Hours 4-7: 50% inbound, 50% outbound (balanced mid-day)
         - Hours 8-10: 30% inbound, 70% outbound (afternoon shipping)
-            
+
         KEY: Process OUTBOUND FIRST each hour, then INBOUND
         This ensures old pallets (front rows) are retrieved before new ones are added (back rows)
         """
         inbound_per_hour = int(self.throughput.effective_inbound_pallets / operating_hours)
         outbound_per_hour = int(self.throughput.effective_outbound_pallets / operating_hours)
-        
+
         total_shuffles = 0
         total_retrievals = 0
-        
+
         for hour in range(1, operating_hours + 1):
             # Variable inbound/outbound ratio based on time of day
             if hour <= 3:
@@ -203,7 +207,7 @@ class WarehouseSimulator:
                 # Afternoon: Heavy outbound
                 inbound_this_hour = int(inbound_per_hour * 0.6)  # 30% reduced (21)
                 outbound_this_hour = int(outbound_per_hour * 1.4)  # 70% extra (50)
-            
+
             # OUTBOUND FIRST: Retrieve pallets and count actual shuffles
             for _ in range(outbound_this_hour):
                 oldest = fifo_model.oldest_accessible_slot()
@@ -211,19 +215,19 @@ class WarehouseSimulator:
                     # Count blocking pallets (each = 1 shuffle move)
                     blockers = fifo_model.blocking_pallets(oldest.row, oldest.col, oldest.level)
                     total_shuffles += len(blockers)
-                    
+
                     # Perform shuffles (move blockers forward)
                     for blocker in blockers:
                         fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
-                    
+
                     # Now retrieve the oldest pallet
                     fifo_model.outbound_get()
                     total_retrievals += 1
-            
+
             # INBOUND SECOND: Add pallets to storage (fill front-to-back)
             for _ in range(inbound_this_hour):
                 fifo_model.inbound_put()
-        
+
         return total_shuffles / max(1, total_retrievals)
 
     def _simulate_two_zone_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
@@ -245,22 +249,22 @@ class WarehouseSimulator:
                 for level in range(1, fifo_model.num_levels + 1):
                     fill_counter += 1
                     fifo_model._slots[(row, col, level)].fill_order = fill_counter
-        
+
         # Now set counter so new inbound starts at 73
         fifo_model._counter = fill_counter
-        
+
         inbound_per_hour = int(self.throughput.effective_inbound_pallets / (operating_hours // 2))
         outbound_per_hour = int(self.throughput.effective_outbound_pallets / (operating_hours // 2))
-        
+
         total_shuffles = 0
         total_retrievals = 0
         day_shuffles = [0, 0]
         day_retrievals = [0, 0]
-        
+
         for hour in range(1, operating_hours + 1):
             day = (hour - 1) // 10
             hour_in_day = ((hour - 1) % 10) + 1
-            
+
             # Variable inbound/outbound ratio
             if hour_in_day <= 3:
                 inbound_this_hour = int(inbound_per_hour * 2.25)  # 90%
@@ -271,11 +275,11 @@ class WarehouseSimulator:
             else:
                 inbound_this_hour = int(inbound_per_hour * 0.25)  # 10%
                 outbound_this_hour = int(outbound_per_hour * 2.25)  # 90%
-            
+
             # INBOUND: New pallets fill front rows
             for _ in range(inbound_this_hour):
                 fifo_model.inbound_put()
-            
+
             # OUTBOUND: Retrieve from back rows where old pallets are, even if blocked
             for _ in range(outbound_this_hour):
                 # Find oldest pallet in back rows - where we pre-filled old pallets
@@ -287,50 +291,59 @@ class WarehouseSimulator:
                             if slot.is_occupied:
                                 if oldest_in_back is None or slot.fill_order < oldest_in_back.fill_order:
                                     oldest_in_back = slot
-                
+
                 if oldest_in_back:
                     # Count blocking pallets in front of this back-row pallet
                     blockers = fifo_model.blocking_pallets(oldest_in_back.row, oldest_in_back.col, oldest_in_back.level)
-                    
+
                     # DEBUG: Print blocking info
                     if hour == 8 and _ == 0:
-                        print(f"  DEBUG Hour {hour}: Oldest_in_back at Row {oldest_in_back.row}, Col {oldest_in_back.col}, Level {oldest_in_back.level} | "
-                              f"Fill_order {oldest_in_back.fill_order} | Blockers: {len(blockers)}")
-                    
+                        print(
+                            f"  DEBUG Hour {hour}: Oldest_in_back at Row {oldest_in_back.row}, Col {oldest_in_back.col}, "
+                            f"Level {oldest_in_back.level} | Fill_order {oldest_in_back.fill_order} | Blockers: {len(blockers)}"
+                        )
+
                     total_shuffles += len(blockers)
                     day_shuffles[day] += len(blockers)
-                    
+
                     # Shuffle blockers out of the way
                     for blocker in blockers:
                         fifo_model.shuffle_pallet(blocker.row, blocker.col, blocker.level)
-                    
+
                     # Now retrieve the back-row pallet
                     fifo_model.outbound_get()
                     total_retrievals += 1
                     day_retrievals[day] += 1
-            
+
             # Print hourly status
             if hour % 1 == 0:
-                print(f"Hour {hour:2d}: Inbound={inbound_this_hour:2d}, Outbound={outbound_this_hour:2d} | "
-                      f"Storage={fifo_model.occupied_count:3d}/360 ({fifo_model.occupancy_fraction*100:5.1f}%) | "
-                      f"Shuffles={total_shuffles}, Retrievals={total_retrievals}")
-        
+                print(
+                    f"Hour {hour:2d}: Inbound={inbound_this_hour:2d}, Outbound={outbound_this_hour:2d} | "
+                    f"Storage={fifo_model.occupied_count:3d}/360 ({fifo_model.occupancy_fraction*100:5.1f}%) | "
+                    f"Shuffles={total_shuffles}, Retrievals={total_retrievals}"
+                )
+
         avg_shuffles = total_shuffles / max(1, total_retrievals) if total_retrievals > 0 else 0
-        
+
         print(f"\n{'='*60}")
-        print(f"=== 2-DAY SHUFFLE SIMULATION RESULTS ===")
+        print("=== 2-DAY SHUFFLE SIMULATION RESULTS ===")
         print(f"{'='*60}")
-        print(f"Day 1 - Shuffles: {day_shuffles[0]:3d} | Retrievals: {day_retrievals[0]:3d} | Avg: {day_shuffles[0]/max(1,day_retrievals[0]):.2f}")
-        print(f"Day 2 - Shuffles: {day_shuffles[1]:3d} | Retrievals: {day_retrievals[1]:3d} | Avg: {day_shuffles[1]/max(1,day_retrievals[1]):.2f}")
+        print(
+            f"Day 1 - Shuffles: {day_shuffles[0]:3d} | Retrievals: {day_retrievals[0]:3d} | Avg: "
+            f"{day_shuffles[0]/max(1,day_retrievals[0]):.2f}"
+        )
+        print(
+            f"Day 2 - Shuffles: {day_shuffles[1]:3d} | Retrievals: {day_retrievals[1]:3d} | Avg: "
+            f"{day_shuffles[1]/max(1,day_retrievals[1]):.2f}"
+        )
         print(f"{'='*60}")
         print(f"Total - Shuffles: {total_shuffles} | Retrievals: {total_retrievals}")
         print(f"Overall Avg Shuffles per Retrieval: {avg_shuffles:.2f}")
         print(f"Final Storage: {fifo_model.occupied_count}/{fifo_model.total_positions} occupied")
         print(f"{'='*60}\n")
-        
+
         return avg_shuffles
-    
-    
+
     def run(self, traffic_control_enabled: bool = False) -> SimulationResults:
         """Execute the full simulation and return results.
 
@@ -402,10 +415,28 @@ class WarehouseSimulator:
             num_columns=self.stacking.num_columns,
             num_levels=self.stacking.num_levels,
         )
-        
+
+        # Determine block storage policy
+        block_policy_cfg = self.config.get("Block_Storage_Policy", {})
+        block_policy_raw = block_policy_cfg.get("strategy", "fifo")
+        if block_policy_raw in {"column_fifo", "lane_sequence"}:
+            block_policy = "column_fifo"
+        else:
+            block_policy = "fifo"
+        results.block_storage_policy = block_policy
+
         # Dynamic simulation with variable hourly ratios (Option C)
         shuffle_strategy = self.config.get("Shuffle_Configuration", {}).get("strategy", "")
-        if shuffle_strategy == "alternating_buffer_column_24h":
+        if block_policy == "column_fifo":
+            # Column-FIFO mode: no shuffling required
+            results.avg_shuffles_per_outbound = 0.0
+            # Replace fifo_model with the lane-sequence variant for reporting
+            results.fifo_model = LaneSequenceStorageModel(
+                num_rows=self.stacking.num_rows,
+                num_columns=self.stacking.num_columns,
+                num_levels=self.stacking.num_levels,
+            )
+        elif shuffle_strategy == "alternating_buffer_column_24h":
             alt_result = run_alternating_buffer_simulation(self.config, num_days=2)
             results.avg_shuffles_per_outbound = 0.0
         else:
@@ -414,7 +445,7 @@ class WarehouseSimulator:
                 self.throughput.operating_hours
             )
 
-        # Fleet sizing for inbound / outbound
+        # Preliminary fleet sizing (baseline cycles)
         results.inbound_fleet = calculate_fleet_size(
             daily_pallets=self.throughput.effective_inbound_pallets,
             avg_cycle_time_s=results.inbound_cycle.total_time_s,
@@ -444,7 +475,7 @@ class WarehouseSimulator:
             workflow="Shuffling",
         )
 
-        # Traffic control model
+        # Traffic control model (uses baseline cycles for arrival estimation)
         total_agvs = results.total_outbound_fleet_size or 1
         results.traffic_model = TrafficControlModel(
             aisle_widths=self.aisle_widths,
@@ -455,7 +486,40 @@ class WarehouseSimulator:
             operating_hours=self.throughput.operating_hours,
         )
 
+        if traffic_control_enabled and results.traffic_model:
+            inbound_wait = results.traffic_model.total_wait_time_inbound_s()
+            outbound_wait = results.traffic_model.total_wait_time_outbound_s()
+            if inbound_wait > 0:
+                results.inbound_cycle.total_time_s += inbound_wait
+                results.inbound_cycle.phases.append(
+                    CyclePhase("Traffic control wait", inbound_wait, "aisle/intersection delays")
+                )
+            if outbound_wait > 0:
+                results.outbound_cycle.total_time_s += outbound_wait
+                results.outbound_cycle.phases.append(
+                    CyclePhase("Traffic control wait", outbound_wait, "aisle/intersection delays")
+                )
+
+            # Recalculate inbound/outbound fleet sizes with traffic delays
+            results.inbound_fleet = calculate_fleet_size(
+                daily_pallets=self.throughput.effective_inbound_pallets,
+                avg_cycle_time_s=results.inbound_cycle.total_time_s,
+                operating_hours=self.throughput.operating_hours,
+                utilization_target=self.throughput.utilization_target,
+                vehicle_type="XQE_122",
+                workflow="Inbound",
+            )
+            results.outbound_fleet = calculate_fleet_size(
+                daily_pallets=self.throughput.effective_outbound_pallets,
+                avg_cycle_time_s=results.outbound_cycle.total_time_s,
+                operating_hours=self.throughput.operating_hours,
+                utilization_target=self.throughput.utilization_target,
+                vehicle_type="XQE_122",
+                workflow="Outbound",
+            )
+
         return results
+
     def full_report(self, results: Optional[SimulationResults] = None) -> str:
         """Generate a complete text report."""
         if results is None:
@@ -503,6 +567,7 @@ class WarehouseSimulator:
                 results.shuffling_fleet,
                 traffic_report=traffic_text,
                 avg_shuffles_per_cycle=results.avg_shuffles_per_outbound,
+                block_storage_policy=results.block_storage_policy,
             )
         )
         return "\n".join(sections)
