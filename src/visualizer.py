@@ -304,7 +304,8 @@ def outbound_performance_report(
     block_storage_policy: str = "fifo",
 ) -> str:
     policy_label = {
-        "lane_sequence": "Lane-Sequence (column drain, top-down, 0 shuffles)",
+        "column_fifo": "Column-FIFO (column drain, top-down, 0 shuffles)",
+        "lane_sequence": "Column-FIFO (column drain, top-down, 0 shuffles)",
         "fifo": "FIFO (time-ordered, blocking/shuffling)",
     }.get(block_storage_policy, block_storage_policy)
     lines = [
