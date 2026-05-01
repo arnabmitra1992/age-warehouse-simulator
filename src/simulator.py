@@ -13,6 +13,7 @@ from .warehouse_layout import WarehouseDistances, AisleWidths, distances_from_di
 from .rack_storage import RackConfig, rack_config_from_dict
 from .ground_stacking import GroundStackingConfig, ground_stacking_config_from_dict
 from .fifo_storage import FIFOStorageModel
+from .lane_sequence_storage import LaneSequenceStorageModel
 from .traffic_control import TrafficControlConfig, TrafficControlModel, traffic_control_config_from_dict
 from .alternating_buffer_strategy import run_alternating_buffer_simulation
 from .cycle_calculator import (
@@ -69,6 +70,7 @@ class SimulationResults:
         self.avg_shuffles_per_outbound: float = 0.0
         self.fifo_model: Optional[FIFOStorageModel] = None
         self.traffic_model: Optional[TrafficControlModel] = None
+        self.block_storage_policy: str = "fifo"  # "fifo" or "lane_sequence"
 
     @property
     def total_fleet_size(self) -> int:
@@ -115,6 +117,7 @@ class SimulationResults:
         # Outbound workflow metrics (if computed)
         if self.inbound_cycle or self.outbound_cycle:
             base["outbound_workflow"] = {
+                "block_storage_policy": self.block_storage_policy,
                 "inbound_cycle_s": self.inbound_cycle.total_time_s if self.inbound_cycle else 0,
                 "outbound_cycle_s": self.outbound_cycle.total_time_s if self.outbound_cycle else 0,
                 "shuffling_cycle_s": self.shuffling_cycle.total_time_s if self.shuffling_cycle else 0,
@@ -403,9 +406,23 @@ class WarehouseSimulator:
             num_levels=self.stacking.num_levels,
         )
         
+        # Determine block storage policy
+        block_policy_cfg = self.config.get("Block_Storage_Policy", {})
+        block_policy = block_policy_cfg.get("strategy", "fifo")
+        results.block_storage_policy = block_policy
+
         # Dynamic simulation with variable hourly ratios (Option C)
         shuffle_strategy = self.config.get("Shuffle_Configuration", {}).get("strategy", "")
-        if shuffle_strategy == "alternating_buffer_column_24h":
+        if block_policy == "lane_sequence":
+            # Lane-sequence mode: no shuffling required
+            results.avg_shuffles_per_outbound = 0.0
+            # Replace fifo_model with the lane-sequence variant for reporting
+            results.fifo_model = LaneSequenceStorageModel(
+                num_rows=self.stacking.num_rows,
+                num_columns=self.stacking.num_columns,
+                num_levels=self.stacking.num_levels,
+            )
+        elif shuffle_strategy == "alternating_buffer_column_24h":
             alt_result = run_alternating_buffer_simulation(self.config, num_days=2)
             results.avg_shuffles_per_outbound = 0.0
         else:
@@ -503,6 +520,7 @@ class WarehouseSimulator:
                 results.shuffling_fleet,
                 traffic_report=traffic_text,
                 avg_shuffles_per_cycle=results.avg_shuffles_per_outbound,
+                block_storage_policy=results.block_storage_policy,
             )
         )
         return "\n".join(sections)
