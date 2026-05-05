@@ -9,12 +9,16 @@ Implements aisle capacity rules for XQE_122:
 Queue wait times are estimated analytically using an M/D/c queuing model
 (Poisson arrivals, deterministic service, c servers).  For c=1 the Pollaczek–
 Khinchine formula applies; for c=2 the Erlang-C approximation is used.
+
+Intersection delays are modeled with timed-priority control. Each intersection
+has a fixed cycle time and priority split (e.g. 70/30). Vehicles on the
+main-priority stream wait, on average, half of the red time per crossing.
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .warehouse_layout import (
     AisleWidths,
@@ -29,6 +33,10 @@ class TrafficControlConfig:
     enabled: bool = True
     xqe_min_aisle_width_mm: float = XQE_MIN_AISLE_WIDTH_MM
     xqe_bidirectional_width_mm: float = XQE_BIDIRECTIONAL_WIDTH_MM
+    intersection_count: int = 0
+    intersection_cycle_time_s: float = 30.0
+    intersection_priority_main_share: float = 0.7
+    intersection_priority_side_share: float = 0.3
 
 
 @dataclass
@@ -88,6 +96,41 @@ class AisleMetrics:
         )
 
 
+@dataclass
+class IntersectionMetrics:
+    """Traffic metrics for timed-priority intersections."""
+    count: int = 0
+    cycle_time_s: float = 30.0
+    main_priority_share: float = 0.7
+    side_priority_share: float = 0.3
+    main_arrival_rate_per_hour: float = 0.0
+    side_arrival_rate_per_hour: float = 0.0
+
+    @property
+    def main_wait_per_crossing_s(self) -> float:
+        if self.count <= 0:
+            return 0.0
+        red_time = self.cycle_time_s * (1.0 - self.main_priority_share)
+        return red_time / 2.0
+
+    @property
+    def side_wait_per_crossing_s(self) -> float:
+        if self.count <= 0:
+            return 0.0
+        red_time = self.cycle_time_s * (1.0 - self.side_priority_share)
+        return red_time / 2.0
+
+    def summary(self) -> List[str]:
+        if self.count <= 0:
+            return ["  Intersections          : none"]
+        return [
+            f"  Intersections          : {self.count} (cycle {self.cycle_time_s:.0f}s, priority {self.main_priority_share:.2f}/{self.side_priority_share:.2f})",
+            f"  Intersection main wait : {self.main_wait_per_crossing_s:.1f}s per crossing",
+            f"  Intersection main rate : {self.main_arrival_rate_per_hour:.1f} passes/h",
+            f"  Intersection side rate : {self.side_arrival_rate_per_hour:.1f} passes/h",
+        ]
+
+
 def _erlang_c(c: int, a: float) -> float:
     """
     Erlang-C formula: probability an arriving customer has to wait in
@@ -105,6 +148,20 @@ def _erlang_c(c: int, a: float) -> float:
     summation = sum((a ** k) / math.factorial(k) for k in range(c))
     denominator = summation + numerator
     return numerator / denominator if denominator > 0 else 0.0
+
+
+def _normalize_priority(main: Optional[float], side: Optional[float]) -> Tuple[float, float]:
+    if main is None and side is None:
+        main = 0.7
+        side = 0.3
+    elif side is None:
+        side = 1.0 - main
+    elif main is None:
+        main = 1.0 - side
+    total = (main or 0.0) + (side or 0.0)
+    if total <= 0:
+        return 0.7, 0.3
+    return (main or 0.0) / total, (side or 0.0) / total
 
 
 class TrafficControlModel:
@@ -147,6 +204,12 @@ class TrafficControlModel:
         self.outbound_cycle_s = outbound_cycle_s
         self.operating_hours = operating_hours
         self._aisles: Dict[str, AisleMetrics] = {}
+        self._intersections = IntersectionMetrics(
+            count=config.intersection_count,
+            cycle_time_s=config.intersection_cycle_time_s,
+            main_priority_share=config.intersection_priority_main_share,
+            side_priority_share=config.intersection_priority_side_share,
+        )
         self._build_aisle_models()
 
     def _build_aisle_models(self) -> None:
@@ -190,6 +253,12 @@ class TrafficControlModel:
             traverse_time_s=outbound_traverse_s,
         )
 
+        if self._intersections.count > 0:
+            main_rate = passes_per_hour * self._intersections.main_priority_share
+            side_rate = passes_per_hour * self._intersections.side_priority_share
+            self._intersections.main_arrival_rate_per_hour = main_rate
+            self._intersections.side_arrival_rate_per_hour = side_rate
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
@@ -198,11 +267,28 @@ class TrafficControlModel:
     def aisles(self) -> Dict[str, AisleMetrics]:
         return self._aisles
 
+    @property
+    def intersections(self) -> IntersectionMetrics:
+        return self._intersections
+
+    def total_intersection_wait_inbound_s(self) -> float:
+        if not self.config.enabled or self._intersections.count <= 0:
+            return 0.0
+        return self._intersections.count * self._intersections.main_wait_per_crossing_s
+
+    def total_intersection_wait_outbound_s(self) -> float:
+        if not self.config.enabled or self._intersections.count <= 0:
+            return 0.0
+        return self._intersections.count * self._intersections.main_wait_per_crossing_s
+
     def total_wait_time_inbound_s(self) -> float:
         """Total estimated wait time per inbound cycle (s)."""
         if not self.config.enabled:
             return 0.0
-        return self._aisles[self.INBOUND_AISLE_NAME].avg_wait_time_s
+        return (
+            self._aisles[self.INBOUND_AISLE_NAME].avg_wait_time_s
+            + self.total_intersection_wait_inbound_s()
+        )
 
     def total_wait_time_outbound_s(self) -> float:
         """Total estimated wait time per outbound cycle (s)."""
@@ -212,6 +298,7 @@ class TrafficControlModel:
             self._aisles[self.INBOUND_AISLE_NAME].avg_wait_time_s
             + self._aisles[self.HEAD_AISLE_NAME].avg_wait_time_s * 2
             + self._aisles[self.OUTBOUND_AISLE_NAME].avg_wait_time_s
+            + self.total_intersection_wait_outbound_s()
         )
 
     def bottleneck_aisle(self) -> Optional[AisleMetrics]:
@@ -224,6 +311,7 @@ class TrafficControlModel:
         lines = ["TRAFFIC CONTROL ANALYSIS", "=" * 60]
         for m in self._aisles.values():
             lines.append(m.summary())
+        lines.extend(self._intersections.summary())
         bn = self.bottleneck_aisle()
         if bn:
             lines.append(f"\n  Bottleneck: {bn.name} (ρ={bn.utilization:.2f})")
@@ -238,10 +326,20 @@ class TrafficControlModel:
 
 def traffic_control_config_from_dict(d: dict) -> TrafficControlConfig:
     """Create TrafficControlConfig from a configuration dictionary."""
+    intersections_cfg = d.get("Intersections", {}) if isinstance(d.get("Intersections", {}), dict) else {}
+    priority_cfg = intersections_cfg.get("Priority_Split", {}) if isinstance(intersections_cfg.get("Priority_Split", {}), dict) else {}
+    main_share, side_share = _normalize_priority(
+        priority_cfg.get("Main", d.get("Intersection_Priority_Main")),
+        priority_cfg.get("Side", d.get("Intersection_Priority_Side")),
+    )
     return TrafficControlConfig(
         enabled=d.get("Enabled", True),
         xqe_min_aisle_width_mm=d.get("XQE_Min_Aisle_Width_mm", XQE_MIN_AISLE_WIDTH_MM),
         xqe_bidirectional_width_mm=d.get(
             "XQE_Bidirectional_Width_mm", XQE_BIDIRECTIONAL_WIDTH_MM
         ),
+        intersection_count=intersections_cfg.get("Count", d.get("Intersection_Count", 0)),
+        intersection_cycle_time_s=intersections_cfg.get("Cycle_Time_s", d.get("Intersection_Cycle_Time_s", 30.0)),
+        intersection_priority_main_share=main_share,
+        intersection_priority_side_share=side_share,
     )

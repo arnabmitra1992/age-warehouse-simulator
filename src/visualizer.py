@@ -301,11 +301,18 @@ def outbound_performance_report(
     shuffling_fleet: Optional["FleetSizeResult"],
     traffic_report: str = "",
     avg_shuffles_per_cycle: float = 0.0,
+    block_storage_policy: str = "fifo",
 ) -> str:
+    policy_label = {
+        "column_fifo": "Column-FIFO (column drain, top-down, 0 shuffles)",
+        "lane_sequence": "Column-FIFO (column drain, top-down, 0 shuffles)",
+        "fifo": "FIFO (time-ordered, blocking/shuffling)",
+    }.get(block_storage_policy, block_storage_policy)
     lines = [
         SEPARATOR,
         _center("INBOUND / OUTBOUND PERFORMANCE METRICS"),
         SUB_SEP,
+        f"  Block storage policy   : {policy_label}",
         f"  Daily inbound pallets  : {throughput_config.effective_inbound_pallets}",
         f"  Daily outbound pallets : {throughput_config.effective_outbound_pallets}",
         f"  Operating hours/day    : {throughput_config.operating_hours}h",
