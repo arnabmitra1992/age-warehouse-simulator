@@ -46,6 +46,9 @@ python main.py demo --example medium
 # Run with custom config
 python main.py run --config config/my_warehouse.json
 
+# Run deterministically with a seed
+python main.py run --config config/my_warehouse.json --random-seed 42
+
 # Export results
 python main.py run --config config/medium.json --output results/
 📁 Project Structure
@@ -84,3 +87,11 @@ Documentation
 See docs/USER_GUIDE.md for full documentation.
 
 Built for EP Equipment AGV fleet optimization – Master Thesis Project
+
+## Simulator API additions
+
+- `POST /simulate` now accepts an optional `random_seed` integer in the request body.
+- The simulation result payload now includes:
+  - `result.random_seed`
+  - `result.fleet_sizes.required_xpl_fleet`
+  - top-level `required_xpl_fleet` (same value for UI convenience)

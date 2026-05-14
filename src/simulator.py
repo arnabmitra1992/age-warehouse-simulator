@@ -5,8 +5,10 @@ Combines all modules to produce a complete simulation report.
 import json
 import csv
 import io
+import random
 from dataclasses import asdict
 from typing import Dict, Any, Optional
+import numpy as np
 
 from .agv_specs import (
     XQE122Specs,
@@ -93,6 +95,8 @@ class SimulationResults:
             "stacking_xqe_outbound": 0.0,
         }
         self.dispatch_throughput_check: Dict[str, Any] = {}
+        self.random_seed: Optional[int] = None
+        self.required_xpl_fleet: int = 0
 
     @property
     def total_fleet_size(self) -> int:
@@ -139,6 +143,7 @@ class SimulationResults:
             },
             "fleet_sizes": {
                 "xpl201": self.xpl_fleet.fleet_size if self.xpl_fleet else 0,
+                "required_xpl_fleet": self.required_xpl_fleet,
                 "xqe122_rack": self.xqe_rack_fleet.fleet_size if self.xqe_rack_fleet else 0,
                 "xqe122_stacking": self.xqe_stack_fleet.fleet_size if self.xqe_stack_fleet else 0,
                 "rack_vehicle_type": self.rack_vehicle_type,
@@ -147,6 +152,7 @@ class SimulationResults:
                 "dispatch_total": self.total_dispatch_fleet_size,
                 "dispatch_throughput_check": self.dispatch_throughput_check,
             },
+            "random_seed": self.random_seed,
         }
         # Outbound workflow metrics (if computed)
         if self.inbound_cycle or self.outbound_cycle:
@@ -172,8 +178,11 @@ class SimulationResults:
         writer.writerow(["metric", "value"])
         flat = {}
         for section, vals in self.to_dict().items():
-            for k, v in vals.items():
-                flat[f"{section}.{k}"] = v
+            if isinstance(vals, dict):
+                for k, v in vals.items():
+                    flat[f"{section}.{k}"] = v
+            else:
+                flat[section] = vals
         for k, v in flat.items():
             writer.writerow([k, v])
         return buf.getvalue()
@@ -481,7 +490,11 @@ class WarehouseSimulator:
 
         return avg_shuffles
 
-    def run(self, traffic_control_enabled: bool = False) -> SimulationResults:
+    def run(
+        self,
+        traffic_control_enabled: bool = False,
+        random_seed: Optional[int] = None,
+    ) -> SimulationResults:
         """Execute the full simulation and return results.
 
         Parameters
@@ -493,9 +506,18 @@ class WarehouseSimulator:
             (e.g. from unit-tests or the ``demo`` command) omits the extra
             overhead unless explicitly requested.
         """
+        if random_seed is None:
+            random_seed = self.config.get("Simulation_Configuration", {}).get(
+                "Random_Seed"
+            )
+        if random_seed is not None:
+            random.seed(int(random_seed))
+            np.random.seed(int(random_seed))
+
         self.traffic_cfg.enabled = traffic_control_enabled
         self.throughput.validate()
         results = SimulationResults()
+        results.random_seed = int(random_seed) if random_seed is not None else None
         results.rack_config = self.rack
         results.stacking_config = self.stacking
         results.throughput_config = self.throughput
@@ -519,6 +541,9 @@ class WarehouseSimulator:
             avg_cycle_time_s=results.xpl_cycle.total_time_s,
             vehicle_type="XPL_201",
             workflow="Horizontal Transport (via handover)",
+        )
+        results.required_xpl_fleet = (
+            results.xpl_fleet.fleet_size if results.xpl_fleet else 0
         )
         results.xqe_rack_fleet = self._size_and_verify_fleet(
             daily_pallets=results.workload_buckets["horizontal_xqe"],
