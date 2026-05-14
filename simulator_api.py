@@ -26,10 +26,12 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Dict[s
 
 
 def _run_simulation(
-    config: Dict[str, Any], traffic_control: bool
+    config: Dict[str, Any], traffic_control: bool, random_seed: Optional[int] = None
 ) -> Tuple[Dict[str, Any], str, Optional[Dict[str, Any]]]:
     sim = WarehouseSimulator(config)
-    results = sim.run(traffic_control_enabled=traffic_control)
+    results = sim.run(
+        traffic_control_enabled=traffic_control, random_seed=random_seed
+    )
     report = sim.full_report(results)
     result_dict = results.to_dict()
     traffic = None
@@ -85,9 +87,16 @@ class SimulatorHandler(BaseHTTPRequestHandler):
             config = payload.get("config")
             traffic_control = bool(payload.get("traffic_control", False))
             workload_buckets = payload.get("workload_buckets")
+            random_seed = payload.get("random_seed")
             if not isinstance(config, dict):
                 _json_response(self, 400, {"ok": False, "error": "Body must include object field 'config'."})
                 return
+            if random_seed is not None:
+                try:
+                    random_seed = int(random_seed)
+                except (TypeError, ValueError):
+                    _json_response(self, 400, {"ok": False, "error": "'random_seed' must be an integer when provided."})
+                    return
             if workload_buckets is not None:
                 if not isinstance(workload_buckets, dict):
                     _json_response(self, 400, {"ok": False, "error": "'workload_buckets' must be an object when provided."})
@@ -95,13 +104,14 @@ class SimulatorHandler(BaseHTTPRequestHandler):
                 tc = config.setdefault("Throughput_Configuration", {})
                 tc["Workload_Buckets"] = workload_buckets
 
-            result_dict, report, traffic = _run_simulation(config, traffic_control)
+            result_dict, report, traffic = _run_simulation(config, traffic_control, random_seed=random_seed)
             _json_response(
                 self,
                 200,
                 {
                     "ok": True,
                     "result": result_dict,
+                    "required_xpl_fleet": (result_dict.get("fleet_sizes", {}) or {}).get("required_xpl_fleet"),
                     "report": report,
                     "traffic": traffic,
                 },

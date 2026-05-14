@@ -32,7 +32,10 @@ EXAMPLE_CONFIGS = {
 def cmd_run(args):
     config = load_config(args.config)
     sim = WarehouseSimulator(config)
-    results = sim.run(traffic_control_enabled=args.traffic_control)
+    results = sim.run(
+        traffic_control_enabled=args.traffic_control,
+        random_seed=args.random_seed,
+    )
     report = sim.full_report(results)
     print(report)
 
@@ -148,7 +151,7 @@ def cmd_demo(args):
         config.setdefault("Throughput_Configuration", {})["Total_Daily_Pallets"] = args.throughput
 
     sim = WarehouseSimulator(config)
-    results = sim.run()
+    results = sim.run(random_seed=args.random_seed)
     print(sim.full_report(results))
     print(f"\nJSON summary:\n{results.to_json()}")
 
@@ -172,6 +175,12 @@ def main():
                                  "(≥3.5 m → 2 XQEs simultaneous; 2.84–3.49 m → 1 XQE)")
     run_parser.add_argument("--charts-dir", default="./charts",
                             help="Directory to save chart images (default: ./charts)")
+    run_parser.add_argument(
+        "--random-seed",
+        type=int,
+        default=None,
+        help="Optional random seed for deterministic simulation runs",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     # demo command
@@ -181,6 +190,12 @@ def main():
                              help="Example scenario name")
     demo_parser.add_argument("--throughput", type=int, default=None,
                              help="Override total daily pallets")
+    demo_parser.add_argument(
+        "--random-seed",
+        type=int,
+        default=None,
+        help="Optional random seed for deterministic simulation runs",
+    )
     demo_parser.set_defaults(func=cmd_demo)
 
     args = parser.parse_args()
