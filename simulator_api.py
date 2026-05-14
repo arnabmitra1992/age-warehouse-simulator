@@ -111,7 +111,7 @@ class SimulatorHandler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "result": result_dict,
-                    "required_xpl_fleet": (result_dict.get("fleet_sizes", {}) or {}).get("required_xpl_fleet"),
+                    "required_xpl_fleet": result_dict.get("fleet_sizes", {}).get("required_xpl_fleet"),
                     "report": report,
                     "traffic": traffic,
                 },

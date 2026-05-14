@@ -507,9 +507,9 @@ class WarehouseSimulator:
             overhead unless explicitly requested.
         """
         if random_seed is None:
-            random_seed = (
-                self.config.get("Simulation_Configuration", {}) or {}
-            ).get("Random_Seed")
+            random_seed = self.config.get("Simulation_Configuration", {}).get(
+                "Random_Seed"
+            )
         if random_seed is not None:
             random.seed(int(random_seed))
             np.random.seed(int(random_seed))
