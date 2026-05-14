@@ -8,7 +8,15 @@ import io
 from dataclasses import asdict
 from typing import Dict, Any, Optional
 
-from .agv_specs import XQE122Specs, XPL201Specs, TurnSpecs, xqe122_from_dict, xpl201_from_dict
+from .agv_specs import (
+    XQE122Specs,
+    XPL201Specs,
+    XNASpecs,
+    TurnSpecs,
+    xqe122_from_dict,
+    xpl201_from_dict,
+    xna_from_dict,
+)
 from .warehouse_layout import WarehouseDistances, AisleWidths, distances_from_dict, aisle_widths_from_dict
 from .rack_storage import RackConfig, rack_config_from_dict
 from .ground_stacking import GroundStackingConfig, ground_stacking_config_from_dict
@@ -71,7 +79,20 @@ class SimulationResults:
         self.avg_shuffles_per_outbound: float = 0.0
         self.fifo_model: Optional[FIFOStorageModel] = None
         self.traffic_model: Optional[TrafficControlModel] = None
-        self.block_storage_policy: str = "fifo"  # "fifo" or "column_fifo"
+        self.block_storage_policy: str = "fifo"  # "fifo", "column_fifo", or "lane_sequence"
+        self.rack_vehicle_type: str = "XQE_122"
+        self.workload_buckets: Dict[str, float] = {
+            "horizontal_xpl": 0.0,
+            "horizontal_xqe": 0.0,
+            "stacking_xqe": 0.0,
+            "horizontal_xpl_inbound": 0.0,
+            "horizontal_xpl_outbound": 0.0,
+            "horizontal_xqe_inbound": 0.0,
+            "horizontal_xqe_outbound": 0.0,
+            "stacking_xqe_inbound": 0.0,
+            "stacking_xqe_outbound": 0.0,
+        }
+        self.dispatch_throughput_check: Dict[str, Any] = {}
 
     @property
     def total_fleet_size(self) -> int:
@@ -86,6 +107,14 @@ class SimulationResults:
         """Total fleet for the inbound + outbound + shuffling workflows."""
         total = 0
         for r in [self.inbound_fleet, self.outbound_fleet, self.shuffling_fleet]:
+            if r:
+                total += r.fleet_size
+        return total
+
+    @property
+    def total_dispatch_fleet_size(self) -> int:
+        total = 0
+        for r in [self.xpl_fleet, self.xqe_rack_fleet, self.xqe_stack_fleet]:
             if r:
                 total += r.fleet_size
         return total
@@ -112,7 +141,11 @@ class SimulationResults:
                 "xpl201": self.xpl_fleet.fleet_size if self.xpl_fleet else 0,
                 "xqe122_rack": self.xqe_rack_fleet.fleet_size if self.xqe_rack_fleet else 0,
                 "xqe122_stacking": self.xqe_stack_fleet.fleet_size if self.xqe_stack_fleet else 0,
+                "rack_vehicle_type": self.rack_vehicle_type,
                 "total": self.total_fleet_size,
+                "workload_buckets": self.workload_buckets,
+                "dispatch_total": self.total_dispatch_fleet_size,
+                "dispatch_throughput_check": self.dispatch_throughput_check,
             },
         }
         # Outbound workflow metrics (if computed)
@@ -157,6 +190,7 @@ class WarehouseSimulator:
         agv_cfg = self.config.get("AGV_Specifications", {})
         self.xqe = xqe122_from_dict(agv_cfg.get("XQE_122", {}))
         self.xpl = xpl201_from_dict(agv_cfg.get("XPL_201", {}))
+        self.xna = xna_from_dict(agv_cfg.get("XNA_121", {}))
         self.turns = TurnSpecs(
             turn_90_degrees_s=agv_cfg.get("Turn_90_degrees_s", 10)
         )
@@ -173,6 +207,109 @@ class WarehouseSimulator:
         self.traffic_cfg = traffic_control_config_from_dict(
             self.config.get("Traffic_Control", {})
         )
+
+    def _determine_rack_vehicle_type(self) -> str:
+        widths_cfg = (
+            self.config.get("Warehouse_Layout", {})
+            .get("Aisle_Widths_mm", {})
+        )
+        rack_width_mm = widths_cfg.get("Rack_Aisle_Width_mm", None)
+        if rack_width_mm is None:
+            rack_width_mm = self.aisle_widths.head_aisle_width_mm
+        # Narrow aisle band from project logic: XNA rack operation
+        if 1717 <= float(rack_width_mm) <= 2500:
+            return "XNA_121"
+        return "XQE_122"
+
+    def _derive_workload_buckets(self) -> Dict[str, float]:
+        """Derive daily workload buckets from graph mix and inbound/outbound rates."""
+        throughput_cfg = self.config.get("Throughput_Configuration", {})
+        buckets_cfg = throughput_cfg.get("Workload_Buckets", {}) or {}
+        if buckets_cfg:
+            hxpl = float(buckets_cfg.get("horizontal_xpl", 0.0))
+            hxqe = float(buckets_cfg.get("horizontal_xqe", 0.0))
+            sxqe = float(buckets_cfg.get("stacking_xqe", 0.0))
+            return {
+                "horizontal_xpl": hxpl,
+                "horizontal_xqe": hxqe,
+                "stacking_xqe": sxqe,
+                "horizontal_xpl_inbound": hxpl,
+                "horizontal_xpl_outbound": 0.0,
+                "horizontal_xqe_inbound": hxqe,
+                "horizontal_xqe_outbound": 0.0,
+                "stacking_xqe_inbound": sxqe,
+                "stacking_xqe_outbound": 0.0,
+            }
+
+        inbound_daily = float(self.throughput.effective_inbound_pallets)
+        outbound_daily = float(self.throughput.effective_outbound_pallets)
+        total_flow_daily = inbound_daily + outbound_daily
+        graph_daily = (self.config.get("Generated_From_Graph", {}) or {}).get("throughput_daily", {}) or {}
+        graph_total = float(graph_daily.get("total", 0.0) or 0.0)
+        graph_handover = float(graph_daily.get("handover", 0.0) or 0.0)
+        graph_storage = float((graph_daily.get("rack", 0.0) or 0.0) + (graph_daily.get("stacking", 0.0) or 0.0))
+
+        if graph_total > 0:
+            handover_ratio = max(0.0, min(1.0, graph_handover / graph_total))
+            direct_ratio = max(0.0, min(1.0, graph_storage / graph_total))
+        else:
+            # Legacy fallback from percentage split
+            handover_ratio = max(0.0, min(1.0, self.throughput.xpl201_percentage / 100.0))
+            direct_ratio = max(0.0, 1.0 - handover_ratio)
+
+        horizontal_xpl_inbound = inbound_daily * handover_ratio
+        horizontal_xpl_outbound = outbound_daily * handover_ratio
+        horizontal_xqe_inbound = inbound_daily * direct_ratio
+        horizontal_xqe_outbound = outbound_daily * direct_ratio
+        stacking_xqe_inbound = inbound_daily
+        stacking_xqe_outbound = outbound_daily
+        return {
+            # Horizontal transport split between XPL and XQE
+            "horizontal_xpl": horizontal_xpl_inbound + horizontal_xpl_outbound,
+            "horizontal_xqe": horizontal_xqe_inbound + horizontal_xqe_outbound,
+            # Storage handling (putaway/retrieval/stacking) is always XQE group
+            "stacking_xqe": stacking_xqe_inbound + stacking_xqe_outbound,
+            "horizontal_xpl_inbound": horizontal_xpl_inbound,
+            "horizontal_xpl_outbound": horizontal_xpl_outbound,
+            "horizontal_xqe_inbound": horizontal_xqe_inbound,
+            "horizontal_xqe_outbound": horizontal_xqe_outbound,
+            "stacking_xqe_inbound": stacking_xqe_inbound,
+            "stacking_xqe_outbound": stacking_xqe_outbound,
+        }
+
+    def _size_and_verify_fleet(
+        self,
+        daily_pallets: float,
+        avg_cycle_time_s: float,
+        vehicle_type: str,
+        workflow: str,
+    ) -> FleetSizeResult:
+        result = calculate_fleet_size(
+            daily_pallets=daily_pallets,
+            avg_cycle_time_s=avg_cycle_time_s,
+            operating_hours=self.throughput.operating_hours,
+            utilization_target=self.throughput.utilization_target,
+            vehicle_type=vehicle_type,
+            workflow=workflow,
+        )
+        if avg_cycle_time_s <= 0:
+            return result
+        # Re-check throughput at utilization target and increment if needed.
+        while True:
+            achieved_daily_at_target = (
+                result.fleet_size
+                * (3600.0 / avg_cycle_time_s)
+                * self.throughput.operating_hours
+                * self.throughput.utilization_target
+            )
+            if achieved_daily_at_target + 1e-9 >= daily_pallets:
+                return result
+            result.fleet_size += 1
+            result.throughput_per_hour = (3600.0 / avg_cycle_time_s) * result.fleet_size
+            required_per_hour = daily_pallets / max(1e-9, self.throughput.operating_hours)
+            result.utilization_percent = (
+                (required_per_hour / max(1e-9, result.throughput_per_hour)) * 100.0
+            )
 
     def _simulate_dynamic_shuffles(self, fifo_model: FIFOStorageModel, operating_hours: int) -> float:
         """
@@ -362,41 +499,70 @@ class WarehouseSimulator:
         results.rack_config = self.rack
         results.stacking_config = self.stacking
         results.throughput_config = self.throughput
+        results.workload_buckets = self._derive_workload_buckets()
 
         # --- Legacy cycle time calculations (kept for backward compatibility) ---
+        rack_vehicle_type = self._determine_rack_vehicle_type()
+        results.rack_vehicle_type = rack_vehicle_type
         results.xpl_cycle = xpl201_handover_cycle(self.xpl, self.turns, self.distances)
+        rack_agv_for_cycle = self.xna if rack_vehicle_type == "XNA_121" else self.xqe
         results.xqe_rack_cycle = xqe122_rack_average_cycle(
-            self.xqe, self.turns, self.distances, self.rack
+            rack_agv_for_cycle, self.turns, self.distances, self.rack
         )
         results.xqe_stack_cycle = xqe122_stacking_average_cycle(
             self.xqe, self.turns, self.distances, self.stacking
         )
 
         # --- Legacy fleet sizing ---
-        results.xpl_fleet = calculate_fleet_size(
-            daily_pallets=self.throughput.xpl201_daily_pallets,
+        results.xpl_fleet = self._size_and_verify_fleet(
+            daily_pallets=results.workload_buckets["horizontal_xpl"],
             avg_cycle_time_s=results.xpl_cycle.total_time_s,
-            operating_hours=self.throughput.operating_hours,
-            utilization_target=self.throughput.utilization_target,
             vehicle_type="XPL_201",
-            workflow="Handover",
+            workflow="Horizontal Transport (via handover)",
         )
-        results.xqe_rack_fleet = calculate_fleet_size(
-            daily_pallets=self.throughput.xqe_rack_daily_pallets,
+        results.xqe_rack_fleet = self._size_and_verify_fleet(
+            daily_pallets=results.workload_buckets["horizontal_xqe"],
             avg_cycle_time_s=results.xqe_rack_cycle.total_time_s,
-            operating_hours=self.throughput.operating_hours,
-            utilization_target=self.throughput.utilization_target,
-            vehicle_type="XQE_122",
-            workflow="Rack Storage",
+            vehicle_type=rack_vehicle_type,
+            workflow="Horizontal Transport (direct)",
         )
-        results.xqe_stack_fleet = calculate_fleet_size(
-            daily_pallets=self.throughput.xqe_stacking_daily_pallets,
+        results.xqe_stack_fleet = self._size_and_verify_fleet(
+            daily_pallets=results.workload_buckets["stacking_xqe"],
             avg_cycle_time_s=results.xqe_stack_cycle.total_time_s,
-            operating_hours=self.throughput.operating_hours,
-            utilization_target=self.throughput.utilization_target,
             vehicle_type="XQE_122",
-            workflow="Ground Stacking",
+            workflow="Storage Handling (stacking/putaway/retrieval)",
         )
+        xpl_achieved = (
+            results.xpl_fleet.fleet_size
+            * (3600.0 / max(1e-9, results.xpl_cycle.total_time_s))
+            * self.throughput.operating_hours
+            * self.throughput.utilization_target
+        )
+        xqe_h_achieved = (
+            results.xqe_rack_fleet.fleet_size
+            * (3600.0 / max(1e-9, results.xqe_rack_cycle.total_time_s))
+            * self.throughput.operating_hours
+            * self.throughput.utilization_target
+        )
+        xqe_s_achieved = (
+            results.xqe_stack_fleet.fleet_size
+            * (3600.0 / max(1e-9, results.xqe_stack_cycle.total_time_s))
+            * self.throughput.operating_hours
+            * self.throughput.utilization_target
+        )
+        results.dispatch_throughput_check = {
+            "horizontal_xpl_target": results.workload_buckets["horizontal_xpl"],
+            "horizontal_xpl_achieved": xpl_achieved,
+            "horizontal_xqe_target": results.workload_buckets["horizontal_xqe"],
+            "horizontal_xqe_achieved": xqe_h_achieved,
+            "stacking_xqe_target": results.workload_buckets["stacking_xqe"],
+            "stacking_xqe_achieved": xqe_s_achieved,
+            "all_targets_met": (
+                xpl_achieved + 1e-9 >= results.workload_buckets["horizontal_xpl"]
+                and xqe_h_achieved + 1e-9 >= results.workload_buckets["horizontal_xqe"]
+                and xqe_s_achieved + 1e-9 >= results.workload_buckets["stacking_xqe"]
+            ),
+        }
 
         # --- New inbound / outbound workflow ---
         results.inbound_cycle = xqe122_inbound_average_cycle(
@@ -420,15 +586,15 @@ class WarehouseSimulator:
         block_policy_cfg = self.config.get("Block_Storage_Policy", {})
         block_policy_raw = block_policy_cfg.get("strategy", "fifo")
         if block_policy_raw in {"column_fifo", "lane_sequence"}:
-            block_policy = "column_fifo"
+            block_policy = block_policy_raw
         else:
             block_policy = "fifo"
         results.block_storage_policy = block_policy
 
         # Dynamic simulation with variable hourly ratios (Option C)
         shuffle_strategy = self.config.get("Shuffle_Configuration", {}).get("strategy", "")
-        if block_policy == "column_fifo":
-            # Column-FIFO mode: no shuffling required
+        if block_policy in {"column_fifo", "lane_sequence"}:
+            # Column-FIFO / Lane-Sequence modes: no shuffling required
             results.avg_shuffles_per_outbound = 0.0
             # Replace fifo_model with the lane-sequence variant for reporting
             results.fifo_model = LaneSequenceStorageModel(
@@ -551,6 +717,11 @@ class WarehouseSimulator:
                 results.xpl_cycle,
                 results.xqe_rack_cycle,
                 results.xqe_stack_cycle,
+                workload_buckets=results.workload_buckets,
+                xpl_fleet=results.xpl_fleet,
+                xqe_horizontal_fleet=results.xqe_rack_fleet,
+                xqe_stacking_fleet=results.xqe_stack_fleet,
+                dispatch_throughput_check=results.dispatch_throughput_check,
             ),
         ]
         traffic_text = ""

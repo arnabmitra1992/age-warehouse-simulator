@@ -3,6 +3,7 @@ Fleet sizing calculations for XPL_201 and XQE_122 vehicle types.
 """
 import math
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -17,6 +18,10 @@ class ThroughputConfig:
     # Separate inbound/outbound daily pallets (new outbound workflow)
     total_daily_inbound_pallets: int = 0   # 0 = use total_daily_pallets
     total_daily_outbound_pallets: int = 0  # 0 = use total_daily_pallets
+    # Optional explicit workload buckets (daily pallets)
+    horizontal_xpl_daily_pallets: Optional[float] = None
+    horizontal_xqe_daily_pallets: Optional[float] = None
+    stacking_xqe_daily_pallets: Optional[float] = None
 
     @property
     def effective_inbound_pallets(self) -> int:
@@ -30,17 +35,43 @@ class ThroughputConfig:
 
     @property
     def xpl201_daily_pallets(self) -> float:
+        if self.horizontal_xpl_daily_pallets is not None:
+            return float(self.horizontal_xpl_daily_pallets)
         return self.total_daily_pallets * self.xpl201_percentage / 100.0
 
     @property
     def xqe_rack_daily_pallets(self) -> float:
+        if self.horizontal_xqe_daily_pallets is not None:
+            return float(self.horizontal_xqe_daily_pallets)
         return self.total_daily_pallets * self.xqe_rack_percentage / 100.0
 
     @property
     def xqe_stacking_daily_pallets(self) -> float:
+        if self.stacking_xqe_daily_pallets is not None:
+            return float(self.stacking_xqe_daily_pallets)
         return self.total_daily_pallets * self.xqe_stacking_percentage / 100.0
 
+    @property
+    def uses_workload_buckets(self) -> bool:
+        return any(
+            v is not None
+            for v in (
+                self.horizontal_xpl_daily_pallets,
+                self.horizontal_xqe_daily_pallets,
+                self.stacking_xqe_daily_pallets,
+            )
+        )
+
     def validate(self) -> None:
+        if self.uses_workload_buckets:
+            for name, value in (
+                ("horizontal_xpl_daily_pallets", self.horizontal_xpl_daily_pallets),
+                ("horizontal_xqe_daily_pallets", self.horizontal_xqe_daily_pallets),
+                ("stacking_xqe_daily_pallets", self.stacking_xqe_daily_pallets),
+            ):
+                if value is not None and value < 0:
+                    raise ValueError(f"{name} must be >= 0, got {value}")
+            return
         total = self.xpl201_percentage + self.xqe_rack_percentage + self.xqe_stacking_percentage
         if abs(total - 100.0) > 0.01:
             raise ValueError(
@@ -121,6 +152,7 @@ def calculate_fleet_size(
 
 
 def throughput_config_from_dict(d: dict) -> ThroughputConfig:
+    buckets = d.get("Workload_Buckets", {}) or {}
     return ThroughputConfig(
         total_daily_pallets=d.get("Total_Daily_Pallets", 1000),
         operating_hours=d.get("Operating_Hours", 16),
@@ -131,4 +163,7 @@ def throughput_config_from_dict(d: dict) -> ThroughputConfig:
         buffer_capacity_pallets=d.get("Buffer_Capacity_Pallets", 50),
         total_daily_inbound_pallets=d.get("Total_Daily_Inbound_Pallets", 0),
         total_daily_outbound_pallets=d.get("Total_Daily_Outbound_Pallets", 0),
+        horizontal_xpl_daily_pallets=buckets.get("horizontal_xpl"),
+        horizontal_xqe_daily_pallets=buckets.get("horizontal_xqe"),
+        stacking_xqe_daily_pallets=buckets.get("stacking_xqe"),
     )

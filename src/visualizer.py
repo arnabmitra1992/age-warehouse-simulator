@@ -305,7 +305,7 @@ def outbound_performance_report(
 ) -> str:
     policy_label = {
         "column_fifo": "Column-FIFO (column drain, top-down, 0 shuffles)",
-        "lane_sequence": "Column-FIFO (column drain, top-down, 0 shuffles)",
+        "lane_sequence": "Lane-Sequence (column drain, top-down, 0 shuffles)",
         "fifo": "FIFO (time-ordered, blocking/shuffling)",
     }.get(block_storage_policy, block_storage_policy)
     lines = [
@@ -342,7 +342,7 @@ def outbound_performance_report(
     )
     lines += [
         SUB_SEP,
-        f"  TOTAL FLEET (inbound + outbound + shuffling): {total} AGVs",
+        f"  REFERENCE TOTAL (inbound + outbound + shuffling): {total} AGVs",
         SEPARATOR,
     ]
     if traffic_report:
@@ -355,26 +355,49 @@ def performance_report(
     xpl_cycle: CycleResult,
     xqe_rack_cycle: CycleResult,
     xqe_stack_cycle: CycleResult,
+    workload_buckets=None,
+    xpl_fleet=None,
+    xqe_horizontal_fleet=None,
+    xqe_stacking_fleet=None,
+    dispatch_throughput_check=None,
 ) -> str:
+    buckets = workload_buckets or {}
+    hxpl = buckets.get("horizontal_xpl", throughput_config.xpl201_daily_pallets)
+    hxqe = buckets.get("horizontal_xqe", throughput_config.xqe_rack_daily_pallets)
+    sxqe = buckets.get("stacking_xqe", throughput_config.xqe_stacking_daily_pallets)
     lines = [
         SEPARATOR,
-        _center("PERFORMANCE METRICS"),
+        _center("DISPATCH-BASED PERFORMANCE METRICS"),
         SUB_SEP,
         f"  Total daily pallets    : {throughput_config.total_daily_pallets}",
         f"  Operating hours/day    : {throughput_config.operating_hours}h",
         f"  Utilisation target     : {throughput_config.utilization_target * 100:.0f}%",
         SUB_SEP,
-        f"  XPL_201 pallets/day    : {throughput_config.xpl201_daily_pallets:.0f}",
+        f"  XPL horizontal tasks/d : {hxpl:.0f}",
         f"  XPL_201 avg cycle time : {xpl_cycle.total_time_s:.1f}s",
         f"  XPL_201 throughput/h   : {3600 / xpl_cycle.total_time_s:.2f} pallets/h (per vehicle)",
+        f"  XPL_201 fleet required : {xpl_fleet.fleet_size if xpl_fleet else 0} AGVs",
         SUB_SEP,
-        f"  XQE_122 rack pallets/d : {throughput_config.xqe_rack_daily_pallets:.0f}",
-        f"  XQE_122 rack cycle     : {xqe_rack_cycle.total_time_s:.1f}s",
-        f"  XQE_122 rack tput/h    : {3600 / xqe_rack_cycle.total_time_s:.2f} pallets/h (per vehicle)",
+        f"  XQE horizontal tasks/d : {hxqe:.0f}",
+        f"  XQE horizontal cycle   : {xqe_rack_cycle.total_time_s:.1f}s",
+        f"  XQE horizontal tput/h  : {3600 / xqe_rack_cycle.total_time_s:.2f} pallets/h (per vehicle)",
+        f"  XQE horizontal fleet   : {xqe_horizontal_fleet.fleet_size if xqe_horizontal_fleet else 0} AGVs",
         SUB_SEP,
-        f"  XQE_122 stack pallets/d: {throughput_config.xqe_stacking_daily_pallets:.0f}",
+        f"  XQE stacking tasks/d   : {sxqe:.0f}",
         f"  XQE_122 stack cycle    : {xqe_stack_cycle.total_time_s:.1f}s",
         f"  XQE_122 stack tput/h   : {3600 / xqe_stack_cycle.total_time_s:.2f} pallets/h (per vehicle)",
+        f"  XQE stacking fleet     : {xqe_stacking_fleet.fleet_size if xqe_stacking_fleet else 0} AGVs",
+        SUB_SEP,
+        f"  DISPATCH TOTAL FLEET   : {(xpl_fleet.fleet_size if xpl_fleet else 0) + (xqe_horizontal_fleet.fleet_size if xqe_horizontal_fleet else 0) + (xqe_stacking_fleet.fleet_size if xqe_stacking_fleet else 0)} AGVs",
         SEPARATOR,
     ]
+    if dispatch_throughput_check:
+        lines += [
+            SUB_SEP,
+            f"  Throughput check       : {'PASS' if dispatch_throughput_check.get('all_targets_met') else 'FAIL'}",
+            f"  XPL achieved/target    : {dispatch_throughput_check.get('horizontal_xpl_achieved', 0):.1f} / {dispatch_throughput_check.get('horizontal_xpl_target', 0):.1f}",
+            f"  XQE-H achieved/target  : {dispatch_throughput_check.get('horizontal_xqe_achieved', 0):.1f} / {dispatch_throughput_check.get('horizontal_xqe_target', 0):.1f}",
+            f"  XQE-S achieved/target  : {dispatch_throughput_check.get('stacking_xqe_achieved', 0):.1f} / {dispatch_throughput_check.get('stacking_xqe_target', 0):.1f}",
+            SEPARATOR,
+        ]
     return "\n".join(lines)
